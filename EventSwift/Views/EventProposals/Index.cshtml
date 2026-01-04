@@ -355,7 +355,7 @@
             var lapseDateInput = document.getElementById('lapseDate');
             if (lapseDateInput) {
                 var tomorrow = new Date();
-                tomorrow.setDate(tomorrow.getDate() + 0);
+                tomorrow.setDate(tomorrow.getDate() + 1);
                 var minDate = tomorrow.toISOString().slice(0, 16);
                 lapseDateInput.min = minDate;
             }

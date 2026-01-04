@@ -395,7 +395,315 @@
                         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                     </div>
                     <div class="modal-body" style="max-height: 70vh; overflow-y: auto;">
-                        <p class="text-muted">Document tracking content...</p>
+                        @{
+                            var allProposals = Model.Proposals?.ToList() ?? new List<EventSwift.Models.EventProposal>();
+                            var trackingSteps = new List<dynamic>();
+
+                            // Add submission step
+                            if (allProposals.Any())
+                            {
+                                var totalDocs = allProposals.Count;
+                                var docList = string.Join(", ", allProposals.Take(3).Select(p => p.Title));
+                                if (totalDocs > 3) { docList += $" and {totalDocs - 3} more"; }
+
+                                trackingSteps.Add(new
+                                {
+                                    Step = "Documents Submitted",
+                                    Status = "completed",
+                                    Icon = "bi-box-seam",
+                                    Description = $"{totalDocs} document{(totalDocs > 1 ? "s" : "")} submitted: {docList}",
+                                    Time = (DateTime?)allProposals.Min(p => p.SubmittedAt),
+                                    Color = "success"
+                                });
+                            }
+                            else
+                            {
+                                trackingSteps.Add(new
+                                {
+                                    Step = "Documents Submitted",
+                                    Status = "pending",
+                                    Icon = "bi-box-seam",
+                                    Description = "No documents submitted yet.",
+                                    Time = (DateTime?)null,
+                                    Color = "secondary"
+                                });
+                            }
+
+                            // VPAA Status
+                            var vpaaProposalsTracking = allProposals.Where(p => p.TargetOfficeRole == "VPAA").ToList();
+                            var vpaaApprovals = vpaaProposalsTracking.SelectMany(p => p.Approvals).Where(a => a.Office == "VPAA").ToList();
+                            bool vpaaReviewed = vpaaApprovals.Any() && vpaaApprovals.All(a => a.Status == "Approved");
+                            bool vpaaRejected = vpaaApprovals.Any() && vpaaApprovals.Any(a => a.Status == "Rejected");
+
+                            if (vpaaProposalsTracking.Any())
+                            {
+                                var vpaaDocCount = vpaaProposalsTracking.Count;
+                                var vpaaDocList = string.Join(", ", vpaaProposalsTracking.Take(2).Select(p => p.Title));
+                                if (vpaaDocCount > 2) { vpaaDocList += $" and {vpaaDocCount - 2} more"; }
+
+                                trackingSteps.Add(new
+                                {
+                                    Step = GetOfficeDisplay("VPAA") + " Review",
+                                    Status = vpaaRejected ? "rejected" : (vpaaReviewed ? "completed" : "in-progress"),
+                                    Icon = "bi-person-check",
+                                    Description = vpaaRejected ? $"Returned by {GetOfficeDisplay("VPAA")} - {vpaaDocCount} document{(vpaaDocCount > 1 ? "s" : "")} need revision" :
+                                                   (vpaaReviewed ? $"Approved by {GetOfficeDisplay("VPAA")} - {vpaaDocCount} document{(vpaaDocCount > 1 ? "s" : "")} ready for VPA" :
+                                                   $"For Approval {GetOfficeDisplay("VPAA")} - {vpaaDocCount} document{(vpaaDocCount > 1 ? "s" : "")}: {vpaaDocList}"),
+                                    Time = (DateTime?)null,
+                                    Color = vpaaRejected ? "danger" : (vpaaReviewed ? "success" : "warning")
+                                });
+
+                                // VPA review for VPAA documents
+                                if (vpaaReviewed && !vpaaRejected)
+                                {
+                                    var vpaaVpaApprovals = vpaaProposalsTracking.SelectMany(p => p.Approvals).Where(a => a.Office == "VPA").ToList();
+                                    bool vpaaVpaApproved = vpaaVpaApprovals.Any() && vpaaVpaApprovals.All(a => a.Status == "Approved");
+                                    bool vpaaVpaRejected = vpaaVpaApprovals.Any() && vpaaVpaApprovals.Any(a => a.Status == "Rejected");
+
+                                    trackingSteps.Add(new
+                                    {
+                                        Step = "VPAA → VPA",
+                                        Status = vpaaVpaRejected ? "rejected" : (vpaaVpaApproved ? "completed" : "in-progress"),
+                                        Icon = "bi-arrow-right",
+                                        Description = vpaaVpaRejected ? $"Returned by VPA - {vpaaDocCount} document{(vpaaDocCount > 1 ? "s" : "")} need revision" :
+                                                       (vpaaVpaApproved ? $"Approved by VPA - {vpaaDocCount} document{(vpaaDocCount > 1 ? "s" : "")} ready for President" :
+                                                       $"Forwarded to VPA - {vpaaDocCount} document{(vpaaDocCount > 1 ? "s" : "")} ready for final review"),
+                                        Time = vpaaVpaApprovals.Any() ? vpaaVpaApprovals.Max(a => a.ActionDate) : null,
+                                        Color = vpaaVpaRejected ? "danger" : (vpaaVpaApproved ? "success" : "info")
+                                    });
+                                }
+                            }
+
+                            // VPF Status
+                            var vpfProposalsTracking = allProposals.Where(p => p.TargetOfficeRole == "VPF").ToList();
+                            var vpfApprovals = vpfProposalsTracking.SelectMany(p => p.Approvals).Where(a => a.Office == "VPF").ToList();
+                            bool vpfReviewed = vpfApprovals.Any() && vpfApprovals.All(a => a.Status == "Approved");
+                            bool vpfRejected = vpfApprovals.Any() && vpfApprovals.Any(a => a.Status == "Rejected");
+
+                            if (vpfProposalsTracking.Any())
+                            {
+                                var vpfDocCount = vpfProposalsTracking.Count;
+                                var vpfDocList = string.Join(", ", vpfProposalsTracking.Take(2).Select(p => p.Title));
+                                if (vpfDocCount > 2) { vpfDocList += $" and {vpfDocCount - 2} more"; }
+
+                                trackingSteps.Add(new
+                                {
+                                    Step = GetOfficeDisplay("VPF") + " Review",
+                                    Status = vpfRejected ? "rejected" : (vpfReviewed ? "completed" : "in-progress"),
+                                    Icon = "bi-person-check",
+                                    Description = vpfRejected ? $"Returned by {GetOfficeDisplay("VPF")} - {vpfDocCount} document{(vpfDocCount > 1 ? "s" : "")} need revision" :
+                                                   (vpfReviewed ? $"Approved by {GetOfficeDisplay("VPF")} - {vpfDocCount} document{(vpfDocCount > 1 ? "s" : "")} ready for VPA" :
+                                                   $"For Approval {GetOfficeDisplay("VPF")} - {vpfDocCount} document{(vpfDocCount > 1 ? "s" : "")}: {vpfDocList}"),
+                                    Time = (DateTime?)null,
+                                    Color = vpfRejected ? "danger" : (vpfReviewed ? "success" : "warning")
+                                });
+
+                                // VPA review for VPF documents
+                                if (vpfReviewed && !vpfRejected)
+                                {
+                                    var vpfVpaApprovals = vpfProposalsTracking.SelectMany(p => p.Approvals).Where(a => a.Office == "VPA").ToList();
+                                    bool vpfVpaApproved = vpfVpaApprovals.Any() && vpfVpaApprovals.All(a => a.Status == "Approved");
+                                    bool vpfVpaRejected = vpfVpaApprovals.Any() && vpfVpaApprovals.Any(a => a.Status == "Rejected");
+
+                                    trackingSteps.Add(new
+                                    {
+                                        Step = "VPF → VPA",
+                                        Status = vpfVpaRejected ? "rejected" : (vpfVpaApproved ? "completed" : "in-progress"),
+                                        Icon = "bi-arrow-right",
+                                        Description = vpfVpaRejected ? $"Returned by VPA - {vpfDocCount} document{(vpfDocCount > 1 ? "s" : "")} need revision" :
+                                                       (vpfVpaApproved ? $"Approved by VPA - {vpfDocCount} document{(vpfDocCount > 1 ? "s" : "")} ready for President" :
+                                                       $"Forwarded to VPA - {vpfDocCount} document{(vpfDocCount > 1 ? "s" : "")} ready for final review"),
+                                        Time = vpfVpaApprovals.Any() ? vpfVpaApprovals.Max(a => a.ActionDate) : null,
+                                        Color = vpfVpaRejected ? "danger" : (vpfVpaApproved ? "success" : "info")
+                                    });
+                                }
+                            }
+
+                            // AMU Status
+                            var amuProposalsTracking = allProposals.Where(p => p.TargetOfficeRole == "AMU").ToList();
+                            var amuApprovals = amuProposalsTracking.SelectMany(p => p.Approvals).Where(a => a.Office == "AMU").ToList();
+                            bool amuReviewed = amuApprovals.Any() && amuApprovals.All(a => a.Status == "Approved");
+                            bool amuRejected = amuApprovals.Any() && amuApprovals.Any(a => a.Status == "Rejected");
+
+                            if (amuProposalsTracking.Any())
+                            {
+                                var amuDocCount = amuProposalsTracking.Count;
+                                var amuDocList = string.Join(", ", amuProposalsTracking.Take(2).Select(p => p.Title));
+                                if (amuDocCount > 2) { amuDocList += $" and {amuDocCount - 2} more"; }
+
+                                trackingSteps.Add(new
+                                {
+                                    Step = GetOfficeDisplay("AMU") + " Review",
+                                    Status = amuRejected ? "rejected" : (amuReviewed ? "completed" : "in-progress"),
+                                    Icon = "bi-person-check",
+                                    Description = amuRejected ? $"Returned by {GetOfficeDisplay("AMU")} - {amuDocCount} document{(amuDocCount > 1 ? "s" : "")} need revision" :
+                                                   (amuReviewed ? $"Approved by {GetOfficeDisplay("AMU")} - {amuDocCount} document{(amuDocCount > 1 ? "s" : "")} ready for VPA" :
+                                                   $"For Approval {GetOfficeDisplay("AMU")} - {amuDocCount} document{(amuDocCount > 1 ? "s" : "")}: {amuDocList}"),
+                                    Time = (DateTime?)null,
+                                    Color = amuRejected ? "danger" : (amuReviewed ? "success" : "warning")
+                                });
+
+                                // VPA review for AMU documents
+                                if (amuReviewed && !amuRejected)
+                                {
+                                    var amuVpaApprovals = amuProposalsTracking.SelectMany(p => p.Approvals).Where(a => a.Office == "VPA").ToList();
+                                    bool amuVpaApproved = amuVpaApprovals.Any() && amuVpaApprovals.All(a => a.Status == "Approved");
+                                    bool amuVpaRejected = amuVpaApprovals.Any() && amuVpaApprovals.Any(a => a.Status == "Rejected");
+
+                                    trackingSteps.Add(new
+                                    {
+                                        Step = "AMU → VPA",
+                                        Status = amuVpaRejected ? "rejected" : (amuVpaApproved ? "completed" : "in-progress"),
+                                        Icon = "bi-arrow-right",
+                                        Description = amuVpaRejected ? $"Returned by VPA - {amuDocCount} document{(amuDocCount > 1 ? "s" : "")} need revision" :
+                                                       (amuVpaApproved ? $"Approved by VPA - {amuDocCount} document{(amuDocCount > 1 ? "s" : "")} ready for President" :
+                                                       $"Forwarded to VPA - {amuDocCount} document{(amuDocCount > 1 ? "s" : "")} ready for final review"),
+                                        Time = amuVpaApprovals.Any() ? amuVpaApprovals.Max(a => a.ActionDate) : null,
+                                        Color = amuVpaRejected ? "danger" : (amuVpaApproved ? "success" : "info")
+                                    });
+                                }
+                            }
+
+                            // VPA Status (Direct + Forwarded)
+                            var allVpaApprovals = allProposals.SelectMany(p => p.Approvals).Where(a => a.Office == "VPA").ToList();
+                            bool vpaApproved = allVpaApprovals.Any() && allVpaApprovals.All(a => a.Status == "Approved");
+                            bool vpaRejected = allVpaApprovals.Any() && allVpaApprovals.Any(a => a.Status == "Rejected");
+
+                            var totalVpaDocs = allProposals.Count;
+                            var vpaDirectDocs = allProposals.Where(p => p.TargetOfficeRole == "VPA").Count();
+                            var vpaForwardedDocs = totalVpaDocs - vpaDirectDocs;
+
+                            var vpaDescription = "";
+                            if (vpaRejected)
+                            {
+                                vpaDescription = $"Returned by VPA - {totalVpaDocs} document{(totalVpaDocs > 1 ? "s" : "")} need revision";
+                            }
+                            else if (vpaApproved)
+                            {
+                                vpaDescription = $"Approved by VPA - {totalVpaDocs} document{(totalVpaDocs > 1 ? "s" : "")} ready for President";
+                            }
+                            else
+                            {
+                                var docBreakdown = "";
+                                if (vpaDirectDocs > 0 && vpaForwardedDocs > 0)
+                                {
+                                    docBreakdown = $" ({vpaDirectDocs} direct, {vpaForwardedDocs} forwarded)";
+                                }
+                                else if (vpaDirectDocs > 0)
+                                {
+                                    docBreakdown = $" ({vpaDirectDocs} direct)";
+                                }
+                                else if (vpaForwardedDocs > 0)
+                                {
+                                    docBreakdown = $" ({vpaForwardedDocs} forwarded)";
+                                }
+                                vpaDescription = $"For Approval VPA - {totalVpaDocs} document{(totalVpaDocs > 1 ? "s" : "")}{docBreakdown}";
+                            }
+
+                            trackingSteps.Add(new
+                            {
+                                Step = GetOfficeDisplay("VPA") + " Review",
+                                Status = vpaRejected ? "rejected" : (vpaApproved ? "completed" : "in-progress"),
+                                Icon = "bi-building-check",
+                                Description = vpaDescription,
+                                Time = allVpaApprovals.Any() ? allVpaApprovals.Max(a => a.ActionDate) : null,
+                                Color = vpaRejected ? "danger" : (vpaApproved ? "success" : "warning")
+                            });
+
+                            // President Status
+                            bool presidentApproved = Model.Status == "ApprovedByPresident";
+                            bool sentToPresident = Model.Status == "SentToPresident";
+
+                            var presidentDescription = "";
+                            if (presidentApproved)
+                            {
+                                presidentDescription = $"Approved by President - {totalVpaDocs} document{(totalVpaDocs > 1 ? "s" : "")} approved for event";
+                            }
+                            else if (sentToPresident)
+                            {
+                                presidentDescription = $"Sent to President - {totalVpaDocs} document{(totalVpaDocs > 1 ? "s" : "")} awaiting final approval";
+                            }
+                            else
+                            {
+                                presidentDescription = $"Waiting for VPA - All documents must be approved by VPA before sending to President";
+                            }
+
+                            trackingSteps.Add(new
+                            {
+                                Step = GetOfficeDisplay("President") + " Approval",
+                                Status = presidentApproved ? "completed" : (sentToPresident ? "in-progress" : "pending"),
+                                Icon = "bi-award",
+                                Description = presidentDescription,
+                                Time = (DateTime?)null,
+                                Color = presidentApproved ? "success" : (sentToPresident ? "warning" : "secondary")
+                            });
+                        }
+
+                        <div class="logistics-timeline">
+                            @for (int i = 0; i < trackingSteps.Count; i++)
+                            {
+                                var step = trackingSteps[i];
+                                var isLast = i == trackingSteps.Count - 1;
+                                var isCompleted = step.Status == "completed";
+                                var isRejected = step.Status == "rejected";
+                                var isInProgress = step.Status == "in-progress";
+
+                                <div class="logistics-step @step.Status">
+                                    <div class="logistics-marker @step.Color">
+                                        @if (isCompleted)
+                                        {
+                                            <i class="bi bi-check-circle-fill"></i>
+                                        }
+                                        else if (isRejected)
+                                        {
+                                            <i class="bi bi-x-circle-fill"></i>
+                                        }
+                                        else if (isInProgress)
+                                        {
+                                            <i class="bi bi-arrow-clockwise"></i>
+                                        }
+                                        else
+                                        {
+                                            <i class="bi @step.Icon"></i>
+                                        }
+                                    </div>
+                                    <div class="logistics-content">
+                                        <div class="logistics-header">
+                                            <h6 class="mb-0" style="font-size: 0.9rem;">@step.Step</h6>
+                                            <span class="logistics-status @step.Color" style="font-size: 0.75rem;">@step.Status.Replace("-", " ").ToUpper()</span>
+                                        </div>
+                                        <p class="logistics-description mb-0" style="font-size: 0.85rem;">@step.Description</p>
+                                        @if (step.Time != null)
+                                        {
+                                            <small class="text-muted" style="font-size: 0.75rem;">
+                                                <i class="bi bi-clock me-1"></i>@(((DateTime)step.Time).ToString("MMM dd, yyyy HH:mm"))
+                                            </small>
+                                        }
+                                    </div>
+                                    @if (!isLast)
+                                    {
+                                        <div class="logistics-line @(isCompleted ? "completed" : "")"></div>
+                                    }
+                                </div>
+                            }
+                        </div>
+
+                        <!-- Progress Summary -->
+                        <div class="mt-3">
+                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                <span class="fw-semibold" style="font-size: 0.85rem;">Overall Progress</span>
+                                <span class="text-muted" style="font-size: 0.75rem;">@trackingSteps.Count(x => x.Status == "completed")/@trackingSteps.Count steps completed</span>
+                            </div>
+                            <div class="progress" style="height: 6px;">
+                                @{
+                                    var completedSteps = trackingSteps.Count(x => x.Status == "completed");
+                                    var totalSteps = trackingSteps.Count;
+                                    var progressPercentage = totalSteps > 0 ? (completedSteps * 100) / totalSteps : 0;
+                                }
+                                <div class="progress-bar bg-success" role="progressbar" style="width: @progressPercentage%"
+                                     aria-valuenow="@completedSteps" aria-valuemin="0" aria-valuemax="@totalSteps"></div>
+                            </div>
+                        </div>
                     </div>
                     <div class="modal-footer">
                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
