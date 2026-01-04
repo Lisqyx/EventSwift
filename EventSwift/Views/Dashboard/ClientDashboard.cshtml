@@ -1,0 +1,563 @@
+﻿@model EventSwift.Models.ClientDashboardViewModel
+
+@{
+    ViewBag.Title = "Client Dashboard";
+    ViewBag.SkipNavbar = true;
+
+    // Prepare the events list as a JSON string safely
+    var eventsList = Model.Events.Select(e => new
+    {
+        id = e.Id,
+        title = e.Title,
+        start = e.StartDate?.ToString("yyyy-MM-dd"), // ✅ Use null-safe call
+        extendedProps = new
+        {
+            status = e.Status ?? "Unknown",
+            venue = e.Venue // Add venue to extendedProps
+        }
+    }).ToList();
+
+    var eventsJson = Newtonsoft.Json.JsonConvert.SerializeObject(eventsList);
+}
+
+<link href="https://cdn.jsdelivr.net/npm/fullcalendar@5.11.3/main.min.css" rel="stylesheet" />
+<script src="https://cdn.jsdelivr.net/npm/fullcalendar@5.11.3/main.min.js"></script>
+
+<style>
+    /* Calendar palette colors */
+    .fc .fc-toolbar {
+        background: var(--light-yellow);
+        border-radius: 0.5rem;
+        margin-bottom: 0.5rem;
+        padding: 0.3rem 0.7rem;
+    }
+
+    .fc .fc-toolbar-title {
+        color: var(--green);
+        font-size: 1rem !important;
+        font-weight: 600;
+    }
+
+    .fc .fc-button {
+        background: var(--green);
+        border: none;
+        color: #fff;
+        border-radius: 0.3rem;
+        font-size: 0.85rem;
+        margin: 0 0.1rem;
+        transition: background 0.2s;
+    }
+
+        .fc .fc-button:hover, .fc .fc-button:focus {
+            background: #00ab62;
+            color: #fff;
+        }
+
+    .fc .fc-daygrid-day-number {
+        color: var(--brown);
+        font-size: 0.7rem !important;
+    }
+
+    .fc .fc-event {
+        background: var(--green);
+        border: 1px solid var(--green);
+        color: #fff !important;
+        border-radius: 0.3rem;
+        padding: 2px 4px !important;
+        font-size: 0.7rem !important;
+    }
+
+    .fc .fc-day-today {
+        background: var(--light-yellow) !important;
+    }
+
+    .fc .fc-col-header-cell-cushion {
+        color: var(--green);
+        font-weight: 600;
+    }
+    /* End calendar palette */
+
+    /* Navbar improvements */
+    .custom-navbar {
+        background: var(--light-yellow) !important;
+        border-radius: 0.7rem;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+        margin-bottom: 1.2rem;
+        padding: 0.4rem 1.2rem;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+
+        .custom-navbar .navbar-brand {
+            color: var(--green) !important;
+            font-weight: bold;
+            font-size: 1.1rem;
+            letter-spacing: 1px;
+        }
+
+        .custom-navbar .nav-link, .custom-navbar .btn {
+            color: var(--green) !important;
+            font-size: 0.95rem;
+            margin-left: 0.7rem;
+        }
+
+        .custom-navbar .btn {
+            background: var(--orange);
+            color: #fff !important;
+            border-radius: 0.4rem;
+            padding: 0.3rem 1rem;
+            font-weight: 600;
+            border: none;
+        }
+
+            .custom-navbar .btn:hover {
+                background: var(--green);
+                color: #fff !important;
+            }
+
+    /* Smaller font size for event titles */
+    .fc .fc-event-title {
+        font-size: 0.65rem !important;
+    }
+
+    /* Smaller font size for day numbers */
+    .fc .fc-daygrid-day-number {
+        font-size: 0.7rem !important;
+    }
+
+    /* Reduce event padding to make events smaller */
+    .fc .fc-event {
+        padding: 2px 4px !important;
+    }
+
+    /* Optional: reduce header font size */
+    .fc .fc-toolbar-title {
+        font-size: 1rem !important;
+    }
+
+    /* Container for calendar and event preview side-by-side */
+    .calendar-container {
+        display: flex;
+        gap: 20px;
+        max-width: 100%;
+        border: 1px solid #ddd;
+        padding: 10px;
+        font-family: Arial, sans-serif;
+        font-size: 0.85rem;
+    }
+
+    #calendar {
+        flex: 1 1 600px;
+        height: 400px;
+        overflow: visible !important;
+    }
+
+    #eventPreview {
+        flex: 0 0 280px;
+        border-left: 1px solid #ccc;
+        padding-left: 15px;
+        font-size: 0.9rem;
+    }
+
+        #eventPreview h4 {
+            margin-top: 0;
+            margin-bottom: 10px;
+            font-weight: 600;
+        }
+
+        #eventPreview p {
+            margin: 5px 0;
+        }
+
+        /* Placeholder styling when no event is selected */
+        #eventPreview.empty {
+            color: #777;
+            font-style: italic;
+        }
+</style>
+
+<div class="d-flex">
+    @Html.Partial("~/Views/Shared/_Sidebar.cshtml")
+
+    <div class="flex-grow-1 p-2">
+        @Html.Partial("~/Views/Shared/_Navbar.cshtml")
+
+        <div class="d-flex align-items-center mb-3 w-100">
+            <span class="p-1 px-2 rounded-3 w-100" style="background: #fff; color: var(--green); border: 2px solid var(--green); font-weight: 500; font-size: 1rem; display: flex; align-items: center; gap: 0.5rem; box-shadow: 0 2px 8px rgba(0,0,0,0.04);">
+                <i class="bi bi-person-badge me-2" style="font-size: 1.1em; color: var(--green);"></i>
+                Client Dashboard
+            </span>
+        </div>
+
+        <div class="row">
+            <div class="col-md-3 mb-3">
+                <div class="card text-white d-flex flex-row align-items-center" style="background-color: var(--brown);">
+                    <div class="p-3">
+                        <i class="bi bi-calendar-event display-6"></i>
+                    </div>
+                    <div class="card-body">
+                        <h5 class="card-title mb-1">Total Events</h5>
+                        <p class="card-text fs-3 mb-0">@Model.Events.Count</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3 mb-3">
+                <div class="card text-white d-flex flex-row align-items-center" style="background-color: var(--green);">
+                    <div class="p-3">
+                        <i class="bi bi-file-earmark-text display-6"></i>
+                    </div>
+                    <div class="card-body">
+                        <h5 class="card-title mb-1">Submitted Documents</h5>
+                        <p class="card-text fs-3 mb-0">@Model.MyProposalsCount</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3 mb-3">
+                <div class="card text-white d-flex flex-row align-items-center" style="background-color: var(--orange);">
+                    <div class="p-3">
+                        <i class="bi bi-hourglass-split display-6"></i>
+                    </div>
+                    <div class="card-body">
+                        <h5 class="card-title mb-1">For Approval</h5>
+                        <p class="card-text fs-3 mb-0">@Model.PendingApprovalsCount</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3 mb-3">
+                <div class="card text-white d-flex flex-row align-items-center" style="background-color: #dc133b; ">
+                    <div class="p-3">
+                        <i class="bi bi-arrow-left-circle display-6"></i>
+                    </div>
+                    <div class="card-body">
+                        <h5 class="card-title mb-1">Returned Documents</h5>
+                        <p class="card-text fs-3 mb-0">@Model.RejectedProposalsCount</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        @if (Model.Events.Any(e => e.Status == "ApprovedByPresident"))
+        {
+            <button type="button" class="btn btn-custom d-inline-flex align-items-center gap-2" data-bs-toggle="modal" data-bs-target="#createEventModal">
+                <i class="bi bi-plus-circle"></i> Propose an Event
+            </button>
+            <div class="calendar-container mt-3">
+                <div id="calendar"></div>
+                <div id="eventPreview" class="empty">
+                    <h4><i class="bi bi-calendar-event me-2"></i>Event Details</h4>
+                    <p><i class="bi bi-info-circle me-2"></i>Select an event on the calendar to see details here.</p>
+                </div>
+            </div>
+        }
+        else
+        {
+            <div class="text-center mt-4 p-5" style="background: var(--light-yellow); border-radius: 1rem; border: 2px dashed var(--orange);">
+                <i class="bi bi-calendar-x display-1" style="color: var(--orange);"></i>
+                <h4 class="mt-3" style="color: var(--green);">No Approved Events Yet</h4>
+                <p class="text-muted mb-4">You don't have any approved events to display in the calendar yet.</p>
+                <button type="button" class="btn btn-custom d-inline-flex align-items-center gap-2" data-bs-toggle="modal" data-bs-target="#createEventModal">
+                    <i class="bi bi-plus-circle"></i> Propose an Event
+                </button>
+            </div>
+        }
+
+        <!-- Create Event Modal -->
+        <div class="modal fade" id="createEventModal" tabindex="-1" aria-labelledby="createEventModalLabel" aria-hidden="true">
+            <div class="modal-dialog modal-xl modal-dialog-centered">
+                <div class="modal-content">
+                    <div class="modal-header" style="background-color: var(--green); color: white;">
+                        <h5 class="modal-title" id="createEventModalLabel">
+                            <i class="bi bi-plus-circle me-2"></i> Create New Event with Documents
+                        </h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    @using (Html.BeginForm("CreateEvent", "EventProposals", FormMethod.Post, new { id = "createEventForm", enctype = "multipart/form-data" }))
+                    {
+                        @Html.AntiForgeryToken()
+                        <div class="modal-body">
+                            <div class="row mb-4">
+                                <div class="col-md-6">
+                                    <label for="Title" class="form-label fw-semibold" style="color: var(--green);">
+                                        <i class="bi bi-type me-1"></i> Event Title
+                                    </label>
+                                    <input type="text" name="Title" id="eventTitle" class="form-control" placeholder="Enter Event Title" required />
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="LapseDate" class="form-label fw-semibold" style="color: var(--green);">
+                                        <i class="bi bi-calendar-x me-1"></i> Lapse Date
+                                    </label>
+                                    <input type="datetime-local" name="LapseDate" id="lapseDate" class="form-control" required />
+                                    <small class="form-text text-muted">
+                                        <i class="bi bi-info-circle me-1"></i>If not approved by this date, documents will be marked as "Lapsed"
+                                    </small>
+                                </div>
+                            </div>
+
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <div class="card h-100 border-0" style="background-color: #f8f9fa;">
+                                        <div class="card-body">
+                                            <h6 class="card-title text-success mb-3">
+                                                <i class="bi bi-building me-2"></i>VPAA Office
+                                            </h6>
+                                            <div class="custom-file-input">
+                                                <input type="file" name="VPAAFile" id="VPAAFile" class="form-control" accept=".pdf" style="display: none;" />
+                                                <button type="button" class="btn btn-custom w-100" onclick="document.getElementById('VPAAFile').click();">
+                                                    <i class="bi bi-file-earmark-arrow-up me-2"></i>Upload VPAA Document
+                                                </button>
+                                                <span id="VPAA-file-name" class="ms-2 text-muted small d-block mt-2"></span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="col-md-6 mb-3">
+                                    <div class="card h-100 border-0" style="background-color: #f8f9fa;">
+                                        <div class="card-body">
+                                            <h6 class="card-title text-success mb-3">
+                                                <i class="bi bi-building me-2"></i>VPF Office
+                                            </h6>
+                                            <div class="custom-file-input">
+                                                <input type="file" name="VPFFile" id="VPFFile" class="form-control" accept=".pdf" style="display: none;" />
+                                                <button type="button" class="btn btn-custom w-100" onclick="document.getElementById('VPFFile').click();">
+                                                    <i class="bi bi-file-earmark-arrow-up me-2"></i>Upload VPF Document
+                                                </button>
+                                                <span id="VPF-file-name" class="ms-2 text-muted small d-block mt-2"></span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <div class="card h-100 border-0" style="background-color: #f8f9fa;">
+                                        <div class="card-body">
+                                            <h6 class="card-title text-success mb-3">
+                                                <i class="bi bi-building me-2"></i>AMU Office
+                                            </h6>
+                                            <div class="custom-file-input">
+                                                <input type="file" name="AMUFile" id="AMUFile" class="form-control" accept=".pdf" style="display: none;" />
+                                                <button type="button" class="btn btn-custom w-100" onclick="document.getElementById('AMUFile').click();">
+                                                    <i class="bi bi-file-earmark-arrow-up me-2"></i>Upload AMU Document
+                                                </button>
+                                                <span id="AMU-file-name" class="ms-2 text-muted small d-block mt-2"></span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="col-md-6 mb-3">
+                                    <div class="card h-100 border-0" style="background-color: #f8f9fa;">
+                                        <div class="card-body">
+                                            <h6 class="card-title text-success mb-3">
+                                                <i class="bi bi-building me-2"></i>VPA Office
+                                            </h6>
+                                            <div class="custom-file-input">
+                                                <input type="file" name="VPAFile" id="VPAFile" class="form-control" accept=".pdf" style="display: none;" />
+                                                <button type="button" class="btn btn-custom w-100" onclick="document.getElementById('VPAFile').click();">
+                                                    <i class="bi bi-file-earmark-arrow-up me-2"></i>Upload VPA Document
+                                                </button>
+                                                <span id="VPA-file-name" class="ms-2 text-muted small d-block mt-2"></span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="alert alert-info" role="alert">
+                                <i class="bi bi-info-circle me-2"></i>
+                                <strong>Note:</strong> Documents sent to VPAA/VPF/AMU will be automatically forwarded to VPA after approval. VPA documents go directly to VPA.
+                            </div>
+
+                            <div class="alert alert-warning" role="alert">
+                                <i class="bi bi-exclamation-triangle me-2"></i>
+                                <strong>Important:</strong> If documents are not fully approved by the Lapse Date, they will be marked as "Lapsed" and can only be viewed (no further actions).
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                            <button type="submit" id="createEventSubmitBtn" class="btn btn-custom d-flex align-items-center gap-2">
+                                <i class="bi bi-plus-circle"></i> Create Event
+                            </button>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Toast container for Create Event -->
+<div aria-live="polite" aria-atomic="true"
+     class="position-fixed top-0 end-0 p-3"
+     style="z-index: 1080; min-width: 300px;">
+    <div id="createEventToast"
+         class="toast align-items-center text-bg-success border-0"
+         role="alert" aria-live="assertive" aria-atomic="true">
+        <div class="d-flex">
+            <div class="toast-body" id="createEventToastBody"></div>
+            <button type="button" class="btn-close btn-close-white me-2 m-auto"
+                    data-bs-dismiss="toast" aria-label="Close"></button>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        // Generic toast helper for Create Event
+        function showCreateEventToast(message, isError) {
+            var toastEl = document.getElementById('createEventToast');
+            var toastBody = document.getElementById('createEventToastBody');
+            if (!toastEl || !toastBody) return;
+
+            toastBody.textContent = message;
+            toastEl.classList.remove('text-bg-success', 'text-bg-danger');
+            toastEl.classList.add(isError ? 'text-bg-danger' : 'text-bg-success');
+
+            var bsToast = bootstrap.Toast.getOrCreateInstance(toastEl, { delay: 3000 });
+            bsToast.show();
+        }
+
+        document.addEventListener('DOMContentLoaded', function () {
+            // Office labels for the toast
+            const officeLabels = {
+                'VPAAFile': 'VP Academic Affairs (VPAA)',
+                'VPFFile': 'VP Finance (VPF)',
+                'AMUFile': 'Asset Management Unit (AMU)',
+                'VPAFile': 'VP Administration (VPA)'
+            };
+
+            // File input handling for modal
+            const fileInputs = {
+                'VPAAFile': 'VPAA-file-name',
+                'VPFFile': 'VPF-file-name',
+                'AMUFile': 'AMU-file-name',
+                'VPAFile': 'VPA-file-name'
+            };
+
+            Object.keys(fileInputs).forEach(function (inputId) {
+                var fileInput = document.getElementById(inputId);
+                var fileNameSpan = document.getElementById(fileInputs[inputId]);
+
+                if (fileInput) {
+                    fileInput.addEventListener('change', function () {
+                        if (this.files.length > 0) {
+                            var file = this.files[0];
+                            var fileName = file.name;
+                            var fileExtension = fileName.split('.').pop().toLowerCase();
+
+                            // Check if file is PDF
+                            if (fileExtension !== 'pdf') {
+                                alert('Only PDF files are allowed. Please select a PDF file.');
+                                this.value = ''; // Clear the file input
+                                fileNameSpan.textContent = '';
+                                return;
+                            }
+
+                            fileNameSpan.textContent = fileName;
+
+                            // Toast: "{Document} will be submitted to {Office}"
+                            var officeName = officeLabels[inputId] || 'the selected office';
+                            showCreateEventToast('"' + fileName + '" will be submitted to ' + officeName + '.', false);
+                        } else {
+                            fileNameSpan.textContent = '';
+                        }
+                    });
+                }
+            });
+
+            // Intercept Create Event form submit to show toast, then actually submit
+            var createEventForm = document.getElementById('createEventForm');
+            if (createEventForm) {
+                createEventForm.addEventListener('submit', function (e) {
+                    // Prevent double interception
+                    if (!createEventForm.dataset.submitted) {
+                        e.preventDefault();
+
+                        showCreateEventToast('Event has been proposed.', false);
+
+                        createEventForm.dataset.submitted = 'true';
+
+                        // Small delay so user can see the toast, then submit
+                        setTimeout(function () {
+                            createEventForm.submit();
+                        }, 800);
+                    }
+                });
+            }
+
+            // Calendar + preview logic (unchanged)
+            var calendarEl = document.getElementById('calendar');
+            var previewEl = document.getElementById('eventPreview');
+
+            if (calendarEl && previewEl) {
+                var events = @Html.Raw(eventsJson);
+
+                function clearPreview() {
+                    previewEl.classList.add('empty');
+                    previewEl.innerHTML = `
+                        <h4><i class="bi bi-calendar-event me-2"></i>Event Details</h4>
+                        <p><i class="bi bi-info-circle me-2"></i>Select an event on the calendar to see details here.</p>
+                    `;
+                }
+
+                function showPreview(event) {
+                    previewEl.classList.remove('empty');
+                    previewEl.innerHTML = `
+                        <h4>${event.title}</h4>
+                        <p><strong>Date:</strong> ${event.startStr}</p>
+                        <p><strong>Status:</strong> ${event.extendedProps.status}</p>
+                        <p><strong>Venue:</strong> ${event.extendedProps.venue ? event.extendedProps.venue : 'N/A'}</p>
+                    `;
+                }
+
+                var calendar = new FullCalendar.Calendar(calendarEl, {
+                    initialView: 'dayGridMonth',
+                    height: 450,
+                    events: events,
+                    eventDidMount: function (info) {
+                        var status = (info.event.extendedProps.status || '').toLowerCase().trim();
+                        if (status === 'pending' || status === 'for approval') {
+                            info.el.style.backgroundColor = '#ffc107';
+                            info.el.style.borderColor = '#ffc107';
+                            info.el.style.color = '#212529';
+                            var titleEl = info.el.querySelector('.fc-event-title');
+                            if (titleEl) titleEl.style.color = '#212529';
+                        } else {
+                            info.el.style.backgroundColor = 'var(--green)';
+                            info.el.style.borderColor = 'var(--green)';
+                            info.el.style.color = '#fff';
+                            var titleEl = info.el.querySelector('.fc-event-title');
+                            if (titleEl) titleEl.style.color = '#fff';
+                        }
+                        if (info.event.extendedProps.status) {
+                            info.el.setAttribute('title', 'Status: ' + info.event.extendedProps.status);
+                        }
+                    },
+                    eventClick: function (info) {
+                        showPreview(info.event);
+                    },
+                    headerToolbar: {
+                        left: 'prev,next today',
+                        center: 'title',
+                        right: 'dayGridMonth,timeGridWeek,listWeek'
+                    }
+                });
+
+                calendar.render();
+                clearPreview();
+            }
+        });
+
+        // Set minimum lapse date to tomorrow
+        var lapseDateInput = document.getElementById('lapseDate');
+        if (lapseDateInput) {
+            var tomorrow = new Date();
+            tomorrow.setDate(tomorrow.getDate() + 1);
+            var minDate = tomorrow.toISOString().slice(0, 16);
+            lapseDateInput.min = minDate;
+        }
+    </script>
+}

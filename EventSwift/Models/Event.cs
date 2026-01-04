@@ -1,0 +1,57 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Web;
+
+namespace EventSwift.Models
+{
+    public class Event
+    {
+        public int EventId { get; set; }
+        public string Title { get; set; }
+        public string Status { get; set; } // Pending, ReadyForFinal, FinalPending, FinalApproved, Lapsed
+        public DateTime? ApprovedDate { get; set; }
+        public string Venue { get; set; }
+
+        // NEW: Lapse Date for the entire event
+        public DateTime? LapseDate { get; set; }
+
+        public int ClientId { get; set; }
+        public virtual User Client { get; set; }
+
+        // File paths for each office
+        public string VPAAFilePath { get; set; }
+        public string VPFFilePath { get; set; }
+        public string AMUFilePath { get; set; }
+        public string VPAFilePath { get; set; }
+
+        public virtual ICollection<EventProposal> Proposals { get; set; }
+
+        public DateTime? CreatedAt { get; set; }
+
+        // Helper property to check if lapsed
+        public bool IsLapsed
+        {
+            get
+            {
+                return LapseDate.HasValue &&
+                       DateTime.Now > LapseDate.Value &&
+                       Status != "ApprovedByPresident" &&
+                       Status != "Lapsed";
+            }
+        }
+    }
+
+    public class CreateEventViewModel
+    {
+        public string Title { get; set; }
+
+        // Lapse Date for the event
+        public DateTime? LapseDate { get; set; }
+
+        public System.Web.HttpPostedFileBase VPAAFile { get; set; }
+        public System.Web.HttpPostedFileBase VPFFile { get; set; }
+        public System.Web.HttpPostedFileBase AMUFile { get; set; }
+        public System.Web.HttpPostedFileBase VPAFile { get; set; }
+    }
+}

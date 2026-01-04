@@ -1,0 +1,475 @@
+﻿@model PagedList.IPagedList<EventSwift.Models.Event>
+
+@using PagedList.Mvc
+@using PagedList
+@{
+    ViewBag.Title = "My Events";
+    ViewBag.SkipNavbar = true;
+}
+
+<style>
+    .pagination-container {
+        display: flex;
+        justify-content: center;
+        margin-top: 25px;
+    }
+
+    .pagination li {
+        margin: 0 2px;
+    }
+
+        .pagination li a,
+        .pagination li span {
+            padding: 8px 14px;
+            border-radius: 8px;
+            font-size: 14px;
+            text-decoration: none;
+            border: 1px solid #dee2e6;
+            background: #ffffff;
+            transition: all 0.2s ease-in-out;
+        }
+
+            .pagination li a:hover {
+                background: #0d6efd;
+                color: #fff;
+                border-color: #0d6efd;
+            }
+
+    .pagination .active span {
+        background: #0d6efd;
+        color: #fff;
+        border-color: #0d6efd;
+    }
+
+    .pagination .disabled span {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+</style>
+
+
+<div class="d-flex">
+    @Html.Partial("~/Views/Shared/_Sidebar.cshtml")
+
+    <div class="flex-grow-1 p-2">
+        @Html.Partial("~/Views/Shared/_Navbar.cshtml")
+
+        @Html.Partial("~/Views/Shared/_SectionHeader.cshtml", new ViewDataDictionary { { "Icon", "bi-calendar-event" }, { "Text", "My Events" }, { "Color", "var(--green)" } })
+
+        <div class="mb-3">
+            <button class="btn btn-custom" style="font-weight: 600; font-size: 0.97rem;" data-bs-toggle="modal" data-bs-target="#createEventModal">
+                + Propose New Event
+            </button>
+        </div>
+
+        <div aria-live="polite" aria-atomic="true"
+             class="position-fixed top-0 end-0 p-3"
+             style="z-index: 1080;">
+            <div id="uploadToast"
+                 class="toast align-items-center border-0"
+                 role="alert" aria-live="assertive" aria-atomic="true"
+                 style="background-color: #00ab62; color: #fff;">
+                <div class="d-flex">
+                    <div id="uploadToastBody" class="toast-body">
+                        <!-- message will be set from JS -->
+                    </div>
+                    <button type="button" class="btn-close btn-close-white me-2 m-auto"
+                            data-bs-dismiss="toast" aria-label="Close"></button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Propose an Event Modal -->
+        <div class="modal fade" id="createEventModal" tabindex="-1" aria-labelledby="createEventModalLabel" aria-hidden="true">
+            <div class="modal-dialog modal-xl modal-dialog-centered">
+                <div class="modal-content">
+                    <div class="modal-header" style="background-color: var(--green); color: white;">
+                        <h5 class="modal-title" id="createEventModalLabel">
+                            <i class="bi bi-plus-circle me-2"></i> Create New Event with Documents
+                        </h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        @using (Html.BeginForm("CreateEvent", "EventProposals", FormMethod.Post, new { id = "createEventForm", enctype = "multipart/form-data" }))
+                        {
+                            @Html.AntiForgeryToken()
+                            <div class="row mb-4">
+                                <div class="col-md-6">
+                                    <label class="form-label fw-semibold" style="color: var(--green);" for="Title">
+                                        <i class="bi bi-type me-1"></i> Event Title
+                                    </label>
+                                    @Html.TextBox("Title", null, new { @class = "form-control", placeholder = "Enter event title", required = "required" })
+                                    @Html.ValidationMessage("Title", "", new { @class = "text-danger" })
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label fw-semibold" style="color: var(--green);" for="LapseDate">
+                                        <i class="bi bi-calendar-x me-1"></i> Lapse Date
+                                    </label>
+                                    <input type="datetime-local" name="LapseDate" id="lapseDate" class="form-control" required />
+                                    <small class="form-text text-muted">
+                                        <i class="bi bi-info-circle me-1"></i>If not approved by this date, documents will be marked as "Lapsed"
+                                    </small>
+                                </div>
+                            </div>
+
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <div class="card h-100 border-0" style="background-color: #f8f9fa;">
+                                        <div class="card-body">
+                                            <h6 class="card-title text-success mb-3">
+                                                <i class="bi bi-building me-2"></i>VP Academic Affairs (VPAA) Office
+                                            </h6>
+                                            <div class="custom-file-input">
+                                                <input type="file" name="VPAAFile" id="VPAAFile" class="form-control" accept=".pdf" style="display: none;" />
+                                                <button type="button" class="btn btn-custom w-100" onclick="document.getElementById('VPAAFile').click();">
+                                                    <i class="bi bi-file-earmark-arrow-up me-2"></i>Upload VP Academic Affairs (VPAA) Document
+                                                </button>
+                                                <span id="VPAA-file-name" class="ms-2 text-muted small d-block mt-2"></span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="col-md-6 mb-3">
+                                    <div class="card h-100 border-0" style="background-color: #f8f9fa;">
+                                        <div class="card-body">
+                                            <h6 class="card-title text-success mb-3">
+                                                <i class="bi bi-building me-2"></i>VP Finance (VPF) Office
+                                            </h6>
+                                            <div class="custom-file-input">
+                                                <input type="file" name="VPFFile" id="VPFFile" class="form-control" accept=".pdf" style="display: none;" />
+                                                <button type="button" class="btn btn-custom w-100" onclick="document.getElementById('VPFFile').click();">
+                                                    <i class="bi bi-file-earmark-arrow-up me-2"></i>Upload VP Finance (VPF) Document
+                                                </button>
+                                                <span id="VPF-file-name" class="ms-2 text-muted small d-block mt-2"></span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <div class="card h-100 border-0" style="background-color: #f8f9fa;">
+                                        <div class="card-body">
+                                            <h6 class="card-title text-success mb-3">
+                                                <i class="bi bi-building me-2"></i>Asset Management Unit (AMU) Office
+                                            </h6>
+                                            <div class="custom-file-input">
+                                                <input type="file" name="AMUFile" id="AMUFile" class="form-control" accept=".pdf" style="display: none;" />
+                                                <button type="button" class="btn btn-custom w-100" onclick="document.getElementById('AMUFile').click();">
+                                                    <i class="bi bi-file-earmark-arrow-up me-2"></i>Upload Asset Management Unit (AMU) Document
+                                                </button>
+                                                <span id="AMU-file-name" class="ms-2 text-muted small d-block mt-2"></span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="col-md-6 mb-3">
+                                    <div class="card h-100 border-0" style="background-color: #f8f9fa;">
+                                        <div class="card-body">
+                                            <h6 class="card-title text-success mb-3">
+                                                <i class="bi bi-building me-2"></i>VP Administration (VPA) Office
+                                            </h6>
+                                            <div class="custom-file-input">
+                                                <input type="file" name="VPAFile" id="VPAFile" class="form-control" accept=".pdf" style="display: none;" />
+                                                <button type="button" class="btn btn-custom w-100" onclick="document.getElementById('VPAFile').click();">
+                                                    <i class="bi bi-file-earmark-arrow-up me-2"></i>Upload VP Administration (VPA) Document
+                                                </button>
+                                                <span id="VPA-file-name" class="ms-2 text-muted small d-block mt-2"></span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="alert alert-info" role="alert">
+                                <i class="bi bi-info-circle me-2"></i>
+                                <strong>Note:</strong> Documents sent to VP Academic Affairs (VPAA)/VP Finance (VPF)/Asset Management Unit (AMU) will be automatically forwarded to VP Administration (VPA) after approval. VP Administration (VPA) documents go directly to VP Administration (VPA).
+                            </div>
+
+                            <div class="alert alert-warning" role="alert">
+                                <i class="bi bi-exclamation-triangle me-2"></i>
+                                <strong>Important:</strong> If documents are not fully approved by the Lapse Date, they will be marked as "Lapsed" and can only be viewed (no further actions allowed).
+                            </div>
+                        }
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" id="createEventSubmitBtn" form="createEventForm" class="btn btn-custom d-flex align-items-center gap-2">
+                            <span id="createEventSpinner" class="d-none" role="status" aria-hidden="true">
+                                <span class="spinner-border spinner-border-sm me-2 only-spinner" style="vertical-align: middle;"></span>
+                            </span>
+                            <i class="bi bi-plus-circle"></i> <span class="spinner-text">Create Event</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        @* Add a hidden form for deletion, and a modal for confirmation *@
+        <div id="deleteConfirmModal" class="modal fade" tabindex="-1" aria-labelledby="deleteConfirmModalLabel" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="deleteConfirmModalLabel">Confirm Deletion</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p>Are you sure you want to <span id="deleteActionText">delete</span> this event? This action cannot be undone.</p>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <form id="deleteEventForm" method="post" action="@Url.Action("DeleteEvent", "EventProposals")">
+                            @Html.AntiForgeryToken()
+                            <input type="hidden" name="eventId" id="deleteEventIdInput" />
+                            <button type="submit" class="btn btn-danger"><i class="bi bi-trash"></i> <span id="deleteButtonText">Delete</span></button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card shadow-sm border-0">
+            <div class="card-body p-0">
+                <table class="table table-hover align-middle mb-0">
+                    <thead style="background: var(--light-yellow);">
+                        <tr>
+                            <th style="color: var(--green);">Title</th>
+                            <th style="color: var(--green);">Lapse Date</th>
+                            <th style="color: var(--green);">Status</th>
+                            <th style="color: var(--green);">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var item in Model)
+                        {
+                            var isLapsed = item.Status == "Lapsed" || item.IsLapsed;
+                            <tr class="@(isLapsed ? "table-secondary" : "")">
+                                <td>@item.Title</td>
+                                <td>
+                                    @if (item.LapseDate.HasValue)
+                                    {
+                                        var daysLeft = (item.LapseDate.Value - DateTime.Now).TotalDays;
+                                        if (isLapsed)
+                                        {
+                                            <span class="text-danger"><i class="bi bi-x-circle me-1"></i>@item.LapseDate.Value.ToString("g")</span>
+                                        }
+                                        else if (daysLeft <= 1)
+                                        {
+                                            <span class="text-danger fw-bold"><i class="bi bi-exclamation-triangle me-1"></i>@item.LapseDate.Value.ToString("g")</span>
+                                        }
+                                        else if (daysLeft <= 3)
+                                        {
+                                            <span class="text-warning"><i class="bi bi-clock me-1"></i>@item.LapseDate.Value.ToString("g")</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="text-muted">@item.LapseDate.Value.ToString("g")</span>
+                                        }
+                                    }
+                                    else
+                                    {
+                                        <span class="text-muted">-</span>
+                                    }
+                                </td>
+                                <td>
+                                    @if (isLapsed)
+                                    {
+                                        <span class="badge bg-dark"><i class="bi bi-clock-history me-1"></i>Lapsed</span>
+                                    }
+                                    else if (item.Status == "Approved")
+                                    {
+                                        <span class="badge" style="background: var(--green); color: #fff;">Approved</span>
+                                    }
+                                    else if (item.Status == "Pending")
+                                    {
+                                        <span class="badge" style="background: var(--orange); color: #fff;">Pending</span>
+                                    }
+                                    else if (item.Status == "Rejected")
+                                    {
+                                        <span class="badge" style="background: var(--red); color: #fff;">Returned</span>
+                                    }
+                                    else if (item.Status == "ApprovedByPresident")
+                                    {
+                                        <span class="badge bg-success" style=" color: #fff;">Approved By President</span>
+                                    }
+                                    else if (item.Status == "SentToPresident")
+                                    {
+                                        <span class="badge bg-info" style="color: #fff;">Sent to President</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge bg-secondary">@item.Status</span>
+                                    }
+                                </td>
+                                <td>
+                                    <div class="d-flex align-items-center gap-2">
+                                        <a href="@Url.Action("Details", "EventProposals", new { id = item.EventId })" class="btn btn-sm btn-custom" style="font-size: 0.92rem;"><i class="bi bi-eye me-1"></i> View</a>
+                                        @if (!isLapsed)
+                                        {
+                                            <button type="button" class="btn btn-sm btn-danger" style="font-size: 0.92rem;" data-event-id="@item.EventId" data-action-label="Delete" onclick="showDeleteModal(this)"><i class="bi bi-trash"></i> Delete</button>
+                                        }
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="pagination-container">
+            @Html.PagedListPager(
+                Model,
+                page => Url.Action("Index", new { page }),
+                new PagedList.Mvc.PagedListRenderOptions()
+                {
+                    DisplayLinkToFirstPage = PagedList.Mvc.PagedListDisplayMode.Always,
+                    DisplayLinkToLastPage = PagedList.Mvc.PagedListDisplayMode.Always,
+                    DisplayLinkToNextPage = PagedList.Mvc.PagedListDisplayMode.Always,
+                    DisplayLinkToPreviousPage = PagedList.Mvc.PagedListDisplayMode.Always,
+
+                    MaximumPageNumbersToDisplay = 5,
+                    UlElementClasses = new[] { "pagination" },
+                    LiElementClasses = new[] { "page-item" },
+
+                    // Ensures Bootstrap-friendly classes
+                    LinkToPreviousPageFormat = "‹ Prev",
+                    LinkToNextPageFormat = "Next ›",
+                    LinkToFirstPageFormat = "« First",
+                    LinkToLastPageFormat = "Last »"
+                }
+            )
+        </div>
+
+
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            // Set minimum lapse date to tomorrow
+            var lapseDateInput = document.getElementById('lapseDate');
+            if (lapseDateInput) {
+                var tomorrow = new Date();
+                tomorrow.setDate(tomorrow.getDate() + 0);
+                var minDate = tomorrow.toISOString().slice(0, 16);
+                lapseDateInput.min = minDate;
+            }
+
+            // ===== Toast for uploads =====
+            const uploadToastEl = document.getElementById('uploadToast');
+            const uploadToastBody = document.getElementById('uploadToastBody');
+            const uploadToast = uploadToastEl
+                ? new bootstrap.Toast(uploadToastEl, { delay: 3000 })
+                : null;
+
+            // Map input IDs to office names for the message
+            const officeLabels = {
+                'VPAAFile': 'VP Academic Affairs (VPAA)',
+                'VPFFile': 'VP Finance (VPF)',
+                'AMUFile': 'Asset Management Unit (AMU)',
+                'VPAFile': 'VP Administration (VPA)'
+            };
+
+            // File input handling for modal
+            const fileInputs = {
+                'VPAAFile': 'VPAA-file-name',
+                'VPFFile': 'VPF-file-name',
+                'AMUFile': 'AMU-file-name',
+                'VPAFile': 'VPA-file-name'
+            };
+
+            Object.keys(fileInputs).forEach(function (inputId) {
+                var fileInput = document.getElementById(inputId);
+                var fileNameSpan = document.getElementById(fileInputs[inputId]);
+
+                if (fileInput) {
+                    fileInput.addEventListener('change', function () {
+                        if (this.files.length > 0) {
+                            var file = this.files[0];
+                            var fileName = file.name;
+                            var fileExtension = fileName.split('.').pop().toLowerCase();
+
+                            // Check if file is PDF
+                            if (fileExtension !== 'pdf') {
+                                alert('Only PDF files are allowed. Please select a PDF file.');
+                                this.value = ''; // Clear the file input
+                                fileNameSpan.textContent = '';
+                                return;
+                            }
+
+                            fileNameSpan.textContent = fileName;
+
+                            // Show toast message
+                            if (uploadToast && officeLabels[inputId]) {
+                                uploadToastBody.textContent =
+                                    `"${fileName}" will be submitted to ${officeLabels[inputId]}.`;
+                                uploadToast.show();
+                            }
+                        } else {
+                            fileNameSpan.textContent = '';
+                        }
+                    });
+                }
+            });
+
+            // Add loading spinner and disable button on submit for delete/cancel
+            document.querySelectorAll('form[action$="DeleteEvent"]').forEach(function (form) {
+                form.addEventListener('submit', function (e) {
+                    var btn = form.querySelector('button[type="submit"]');
+                    if (btn && btn.textContent.trim() !== 'Cancel') {
+                        btn.disabled = true;
+                        var spinner = document.createElement('span');
+                        spinner.className = 'spinner-border spinner-border-sm me-2 only-spinner';
+                        spinner.setAttribute('role', 'status');
+                        spinner.setAttribute('aria-hidden', 'true');
+                        btn.prepend(spinner);
+                        btn.querySelector('i').classList.add('d-none');
+                    }
+                });
+            });
+
+            // Add loading spinner and disable button on submit for create event
+            var createEventForm = document.getElementById('createEventForm');
+            var submitBtn = document.getElementById('createEventSubmitBtn');
+            var spinner = document.getElementById('createEventSpinner');
+            if (createEventForm && submitBtn && spinner) {
+                createEventForm.addEventListener('submit', function (e) {
+                    // Show spinner and disable button
+                    spinner.classList.remove('d-none');
+                    submitBtn.setAttribute('disabled', 'disabled');
+                    submitBtn.querySelector('.spinner-text').textContent = 'Creating...';
+                });
+                createEventForm.addEventListener('invalid', function (e) {
+                    spinner.classList.add('d-none');
+                    submitBtn.removeAttribute('disabled');
+                    submitBtn.querySelector('.spinner-text').textContent = 'Create Event';
+                }, true);
+            }
+        });
+
+        function showDeleteModal(btn) {
+            var eventId = btn.getAttribute('data-event-id');
+            var actionLabel = btn.getAttribute('data-action-label');
+            document.getElementById('deleteEventIdInput').value = eventId;
+            document.getElementById('deleteButtonText').textContent = actionLabel;
+            document.getElementById('deleteActionText').textContent = actionLabel.toLowerCase();
+            var modal = new bootstrap.Modal(document.getElementById('deleteConfirmModal'));
+            modal.show();
+        }
+    </script>
+    <style>
+        /* Ensure only the spinner spins, not the text */
+        .spinner-text {
+            animation: none !important;
+        }
+
+        .only-spinner {
+            animation: var(--bs-spinner-animation-speed) linear infinite var(--bs-spinner-animation-name) !important;
+        }
+    </style>
+}

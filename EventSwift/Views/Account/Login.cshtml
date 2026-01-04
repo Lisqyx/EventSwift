@@ -1,0 +1,62 @@
+﻿@model EventSwift.Models.LoginViewModel
+
+@{
+    ViewBag.Title = "Login";
+}
+
+<div class="text-center mb-4">
+    <img src="~/Content/Images/eventswift_logo.png" alt="EventSwift Logo" style="height: 56px;" class="mb-2" />
+    <h4 class="mt-2 mb-0 fw-bold" style="color: var(--green); font-family: 'Inter', Arial, sans-serif; letter-spacing: 1px;">Event Swift Login</h4>
+</div>
+
+@using (Html.BeginForm("Login", "Account", FormMethod.Post, new { id = "loginForm" }))
+{
+    <div class="mb-3">
+        @Html.LabelFor(m => m.Username, new { @class = "form-label fw-semibold", style = "color: var(--green); font-size: 0.95rem;" })
+        @Html.TextBoxFor(m => m.Username, new { @class = "form-control form-control-lg", placeholder = "Enter username", style = "border-radius: 0.35rem; font-size: 0.95rem;", required = "required" })
+    </div>
+
+    <div class="mb-3">
+        @Html.LabelFor(m => m.Password, new { @class = "form-label fw-semibold", style = "color: var(--green); font-size: 0.95rem;" })
+        @Html.PasswordFor(m => m.Password, new { @class = "form-control form-control-lg", placeholder = "Enter password", style = "border-radius: 0.35rem; font-size: 0.95rem;", required = "required" })
+    </div>
+
+    <button type="submit" class="btn btn-custom w-100 mt-2" id="loginBtn">Login</button>
+
+    if (ViewBag.Error != null)
+    {
+        <div id="loginErrorMsg" class="alert alert-danger text-center mt-3 mb-0" role="alert" style="font-weight:600; border-radius:0.35rem;">
+            @ViewBag.Error
+        </div>
+    }
+}
+
+<script>
+document.getElementById('loginForm').addEventListener('submit', function(e) {
+    var username = document.querySelector('input[name="Username"]').value.trim();
+    var password = document.querySelector('input[name="Password"]').value.trim();
+    
+    if (!username) {
+        e.preventDefault();
+        alert('Please enter your username.');
+        document.querySelector('input[name="Username"]').focus();
+        return false;
+    }
+    
+    if (!password) {
+        e.preventDefault();
+        alert('Please enter your password.');
+        document.querySelector('input[name="Password"]').focus();
+        return false;
+    }
+});
+
+window.addEventListener('DOMContentLoaded', function() {
+    var errorMsg = document.getElementById('loginErrorMsg');
+    if (errorMsg) {
+        setTimeout(function() {
+            errorMsg.style.display = 'none';
+        }, 2000);
+    }
+});
+</script>

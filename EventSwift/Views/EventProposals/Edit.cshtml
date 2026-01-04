@@ -1,0 +1,185 @@
+@model EventSwift.Models.EventProposal
+
+@{
+    ViewBag.Title = "Edit Document";
+    ViewBag.SkipNavbar = true;
+}
+
+@functions {
+    public string GetOfficeDisplay(string office) {
+        switch (office) {
+            case "VPAA": return "VP Academic Affairs (VPAA)";
+            case "VPF": return "VP Finance (VPF)";
+            case "VPA": return "VP Administration (VPA)";
+            case "AMU": return "Asset Management Unit (AMU)";
+            case "President": return "President";
+            default: return office;
+        }
+    }
+}
+
+<div class="d-flex">
+    @Html.Partial("~/Views/Shared/_Sidebar.cshtml")
+
+    <div class="flex-grow-1 p-2">
+        @Html.Partial("~/Views/Shared/_Navbar.cshtml")
+
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <a href="@Url.Action("Details", "EventProposals", new { id = Model.EventId })" class="btn btn-link" style="color: var(--green); text-decoration: none; font-weight: 500;">
+                <i class="bi bi-arrow-left me-1"></i> Back to Event Details
+            </a>
+        </div>
+
+        @Html.Partial("~/Views/Shared/_SectionHeader.cshtml", new ViewDataDictionary { { "Icon", "bi-pencil" }, { "Text", "Edit Document" }, { "Color", "var(--green)" } })
+
+        <div class="row">
+            <div class="col-lg-8">
+                <!-- This is the Accordion of Guidelines-->
+                <div class="accordion mb-3" id="editGuidelines">
+                    <div class="accordion-item">
+                        <h2 class="accordion-header text-primary" id="headingEditGuidelines">
+                            <button class="accordion-button collapsed" type="button"
+                                    data-bs-toggle="collapse"
+                                    data-bs-target="#collapseEditGuidelines"
+                                    aria-expanded="false"
+                                    aria-controls="collapseEditGuidelines">
+                                <i class="bi bi-info-circle me-2"></i>
+                                Guidelines
+                            </button>
+                        </h2>
+                        <div id="collapseEditGuidelines"
+                             class="accordion-collapse collapse"
+                             aria-labelledby="headingEditGuidelines"
+                             data-bs-parent="#editGuidelines">
+                            <div class="accordion-body">
+                                <ul class="list-unstyled mb-0">
+                                    <li class="mb-2">
+                                        <i class="bi bi-check-circle text-success me-2"></i>
+                                        Review all previous remarks before updating the document.
+                                    </li>
+                                    <li class="mb-2">
+                                        <i class="bi bi-check-circle text-success me-2"></i>
+                                        Make sure the corrected document is complete and clear.
+                                    </li>
+                                    <li class="mb-2">
+                                        <i class="bi bi-check-circle text-success me-2"></i>
+                                        Upload only PDF files for the updated document.
+                                    </li>
+                                    <li class="mb-2">
+                                        <i class="bi bi-check-circle text-success me-2"></i>
+                                        Double-check the file before clicking "Update Document".
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="card shadow-sm border-0">
+                    <div class="card-body">
+                        <div class="row mb-4">
+                            <div class="col-md-6">
+                                <h6 class="text-muted mb-2">Document Information</h6>
+                                <p><strong>Title:</strong> @Model.Title</p>
+                                <p><strong>Target Office:</strong> @GetOfficeDisplay(Model.TargetOfficeRole)</p>
+                                <p><strong>Original Submission:</strong> @Model.SubmittedAt.ToString("g")</p>
+                            </div>
+                            <div class="col-md-6">
+                                <h6 class="text-muted mb-2">Current Status</h6>
+                                <span class="badge" style="background: var(--orange); color: #fff;">
+                                    <i class="bi bi-clock me-1"></i>Pending Review
+                                </span>
+                            </div>
+                        </div>
+
+                        <div class="alert alert-info mb-4">
+                            <h6 class="mb-3" style="color: var(--green);">
+                                <i class="bi bi-info-circle me-2"></i>Current Document
+                            </h6>
+                            <p class="mb-2"><strong>Current File:</strong> @Path.GetFileName(Model.FilePath)</p>
+                            <a href="@Model.FilePath" target="_blank" class="btn btn-sm btn-outline-primary">
+                                <i class="bi bi-eye me-1"></i>View Current Document
+                            </a>
+                        </div>
+
+                        <hr />
+
+                        <h6 class="text-muted mb-3">
+                            <i class="bi bi-file-earmark-arrow-up me-2"></i>Upload New Document
+                        </h6>
+
+                        @using (Html.BeginForm(null, null, FormMethod.Post, new { enctype = "multipart/form-data" }))
+                        {
+                        @Html.AntiForgeryToken()
+
+                        <div class="mb-3">
+                            <div class="custom-file-input">
+                                <input type="file" name="uploadedFile" id="uploadedFile" class="form-control" accept=".pdf" required style="display: none;" />
+                                <button type="button" class="btn btn-outline-primary" onclick="document.getElementById('uploadedFile').click();">
+                                    <i class="bi bi-file-earmark-arrow-up me-2"></i>Select New PDF File
+                                </button>
+                                <span id="file-name" class="ms-2 text-muted small d-block mt-2"></span>
+                            </div>
+                            <small class="form-text text-muted">
+                                <i class="bi bi-info-circle me-1"></i>Upload a new PDF file to replace the current document. The old file will be deleted.
+                            </small>
+                        </div>
+
+                        <div class="d-flex justify-content-end">
+                            <button type="submit" class="btn text-white" style="background-color: var(--green);">
+                                <i class="bi bi-pencil me-2"></i>Update Document
+                            </button>
+                        </div>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Toast container -->
+<div aria-live="polite" aria-atomic="true"
+     class="position-fixed top-0 end-0 p-3"
+     style="z-index: 1080; min-width: 300px;">
+    <div id="resubmitToast"
+         class="toast align-items-center text-bg-success border-0"
+         role="alert" aria-live="assertive" aria-atomic="true">
+        <div class="d-flex">
+            <div class="toast-body" id="resubmitToastBody"></div>
+            <button type="button" class="btn-close btn-close-white me-2 m-auto"
+                    data-bs-dismiss="toast" aria-label="Close"></button>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Custom file input handling
+            var fileInput = document.getElementById('uploadedFile');
+            var fileNameSpan = document.getElementById('file-name');
+            
+            if (fileInput) {
+                fileInput.addEventListener('change', function() {
+                    if (this.files.length > 0) {
+                        var file = this.files[0];
+                        var fileName = file.name;
+                        var fileExtension = fileName.split('.').pop().toLowerCase();
+                        
+                        // Check if file is PDF
+                        if (fileExtension !== 'pdf') {
+                            alert('Only PDF files are allowed. Please select a PDF file.');
+                            this.value = ''; // Clear the file input
+                            fileNameSpan.textContent = '';
+                            return;
+                        }
+                        
+                        fileNameSpan.textContent = fileName;
+                    } else {
+                        fileNameSpan.textContent = '';
+                    }
+                });
+            }
+        });
+    </script>
+} 

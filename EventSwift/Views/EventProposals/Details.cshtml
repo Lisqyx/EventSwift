@@ -1,0 +1,579 @@
+﻿@model EventSwift.Models.Event
+@using (Html.BeginForm())
+{
+    @Html.AntiForgeryToken()
+}
+@{
+    ViewBag.Title = "Event Details";
+    ViewBag.SkipNavbar = true;
+
+    // Check if event is lapsed
+    bool isEventLapsed = Model.Status == "Lapsed" || Model.IsLapsed;
+
+    // Aggregate all approvals for all proposals under this event
+    var allApprovals = Model.Proposals?.SelectMany(p => p.Approvals ?? new List<EventSwift.Models.ProposalApproval>()).ToList() ?? new List<EventSwift.Models.ProposalApproval>();
+
+    // For each office, all proposals sent to that office must be approved
+    var vpaaProposals = Model.Proposals.Where(p => p.TargetOfficeRole == "VPAA").ToList();
+    var vpfProposals = Model.Proposals.Where(p => p.TargetOfficeRole == "VPF").ToList();
+    var amiProposals = Model.Proposals.Where(p => p.TargetOfficeRole == "AMU").ToList();
+    var vpaProposals = Model.Proposals.Where(p => p.TargetOfficeRole == "VPA").ToList();
+    bool allVPAAApproved = vpaaProposals.Any() && vpaaProposals.All(p => p.Approvals.Any(a => a.Office == "VPAA" && a.Status == "Approved"));
+    bool allVPFApproved = vpfProposals.Any() && vpfProposals.All(p => p.Approvals.Any(a => a.Office == "VPF" && a.Status == "Approved"));
+    bool allAMIApproved = amiProposals.Any() && amiProposals.All(p => p.Approvals.Any(a => a.Office == "AMU" && a.Status == "Approved"));
+    bool allVPAApproved = vpaProposals.Any() && vpaProposals.All(p => p.Approvals.Any(a => a.Office == "VPA" && a.Status == "Approved"));
+
+    // Can send to President if all VPA approvals are completed
+    var vpaApprovals = Model.Proposals?.SelectMany(p => p.Approvals ?? new List<EventSwift.Models.ProposalApproval>()).Where(a => a.Office == "VPA").ToList() ?? new List<EventSwift.Models.ProposalApproval>();
+    bool canSendToPresident = vpaApprovals.Any() && vpaApprovals.All(a => a.Status == "Approved");
+
+    // Get current user role
+    var currentUserRole = "";
+    if (User.Identity.IsAuthenticated)
+    {
+        using (var db = new EventSwift.Models.DefaultConnection())
+        {
+            var user = db.Users.FirstOrDefault(u => u.Username == User.Identity.Name);
+            currentUserRole = user?.Role ?? "";
+        }
+    }
+    bool isVPA = currentUserRole == "VPA";
+
+    // Pre-calculate canFollowUp for each proposal
+    var canFollowUpDict = new Dictionary<int, bool>();
+    var hasPendingFollowUpDict = new Dictionary<int, bool>();
+    if (!isEventLapsed)
+    {
+        using (var checkDb = new EventSwift.Models.DefaultConnection())
+        {
+            foreach (var proposal in Model.Proposals)
+            {
+                bool hasPendingFollowUp = checkDb.Notifications
+                    .Any(n => n.Message.Contains("Follow up:") &&
+                              n.Message.Contains(proposal.Title) &&
+                              n.IsRead == false);
+
+                bool originalNotificationRead = checkDb.Notifications
+                    .Any(n => n.Message.Contains(proposal.Title) &&
+                              !n.Message.Contains("Follow up:") &&
+                              n.IsRead == true);
+
+                bool previousFollowUpRead = checkDb.Notifications
+                    .Any(n => n.Message.Contains("Follow up:") &&
+                              n.Message.Contains(proposal.Title) &&
+                              n.IsRead == true);
+
+                bool canFollowUp = proposal.Status == "Pending" &&
+                                  !hasPendingFollowUp &&
+                                  (originalNotificationRead || previousFollowUpRead);
+
+                canFollowUpDict[proposal.EventProposalId] = canFollowUp;
+                hasPendingFollowUpDict[proposal.EventProposalId] = hasPendingFollowUp;
+            }
+        }
+    }
+}
+
+@functions {
+    public string GetOfficeDisplay(string office)
+    {
+        switch (office)
+        {
+            case "VPAA": return "VP Academic Affairs (VPAA)";
+            case "VPF": return "VP Finance (VPF)";
+            case "VPA": return "VP Administration (VPA)";
+            case "AMU": return "Asset Management Unit (AMU)";
+            case "President": return "President";
+            default: return office;
+        }
+    }
+}
+
+<div class="d-flex">
+    @Html.Partial("~/Views/Shared/_Sidebar.cshtml")
+    <div class="flex-grow-1 p-2">
+        @Html.Partial("~/Views/Shared/_Navbar.cshtml")
+
+        @if (TempData["Error"] != null || TempData["Success"] != null)
+        {
+            <div aria-live="polite" aria-atomic="true" class="position-fixed top-0 end-0 p-3" style="z-index: 1080;">
+                <div class="toast align-items-center text-bg-@(TempData["Error"] != null ? "danger" : "success") border-0 show" role="alert" id="feedbackToast">
+                    <div class="d-flex">
+                        <div class="toast-body">
+                            @(TempData["Error"] ?? TempData["Success"])
+                        </div>
+                        <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+                    </div>
+                </div>
+            </div>
+        }
+
+        <div class="d-flex justify-content-between align-items-center mb-2">
+            <a href="@Url.Action("Index", "EventProposals")" class="btn btn-link" style="color: var(--green); text-decoration: none; font-weight: 500;"><i class="bi bi-arrow-left me-1"></i> Back to My Events</a>
+            <div class="d-flex align-items-center gap-2">
+                @if (isEventLapsed)
+                {
+                    <span class="badge bg-dark"><i class="bi bi-clock-history me-1"></i>Lapsed</span>
+                }
+                else if (Model.Status == "SentToPresident")
+                {
+                    <span class="badge bg-warning text-dark">Sent to President</span>
+                }
+                else if (Model.Status == "ApprovedByPresident")
+                {
+                    <span class="badge bg-success">Approved by President</span>
+                }
+            </div>
+        </div>
+        @Html.Partial("~/Views/Shared/_SectionHeader.cshtml", new ViewDataDictionary { { "Icon", "bi-calendar-event" }, { "Text", $"Event: {Model.Title}" }, { "Color", "var(--green)" }, { "Status", Model.Status } })
+
+        <!-- Lapsed Alert -->
+        @if (isEventLapsed)
+        {
+            <div class="alert alert-dark mb-4">
+                <i class="bi bi-clock-history me-2"></i>
+                <strong>This event has lapsed.</strong> The lapse date was @(Model.LapseDate?.ToString("MMM dd, yyyy hh:mm tt")). Documents can only be viewed.
+            </div>
+        }
+
+        <!-- Event Details Section -->
+        <div class="card shadow-sm border-0 mb-4">
+            <div class="card-header" style="background: var(--light-yellow); border-bottom: 2px solid var(--orange);">
+                <h5 class="mb-0" style="color: var(--green); font-weight: 600;">
+                    <i class="bi bi-calendar-event me-2"></i>Event Details
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    @if (Model.LapseDate.HasValue)
+                    {
+                        var daysLeft = (Model.LapseDate.Value - DateTime.Now).TotalDays;
+                        <div class="col-md-4 mb-3">
+                            <div class="d-flex align-items-center">
+                                <i class="bi bi-calendar-x me-2" style="color: @(isEventLapsed ? "#dc3545" : daysLeft <= 1 ? "#dc3545" : daysLeft <= 3 ? "#ffc107" : "var(--green)"); font-size: 1.2em;"></i>
+                                <div>
+                                    <small class="text-muted">Lapse Date</small>
+                                    <div class="fw-semibold @(isEventLapsed ? "text-danger" : daysLeft <= 1 ? "text-danger" : daysLeft <= 3 ? "text-warning" : "")">
+                                        @Model.LapseDate.Value.ToString("MMM dd, yyyy hh:mm tt")
+                                        @if (!isEventLapsed && daysLeft <= 1)
+                                        {
+                                            <span class="badge bg-danger ms-2">Urgent!</span>
+                                        }
+                                        else if (!isEventLapsed && daysLeft <= 3)
+                                        {
+                                            <span class="badge bg-warning text-dark ms-2">Soon</span>
+                                        }
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    }
+                    @if (Model.ApprovedDate.HasValue)
+                    {
+                        <div class="col-md-4 mb-3">
+                            <div class="d-flex align-items-center">
+                                <i class="bi bi-calendar-check me-2" style="color: var(--green); font-size: 1.2em;"></i>
+                                <div>
+                                    <small class="text-muted">Event Date & Time</small>
+                                    <div class="fw-semibold">@Model.ApprovedDate.Value.ToString("f")</div>
+                                </div>
+                            </div>
+                        </div>
+                    }
+                    @if (!string.IsNullOrEmpty(Model.Venue))
+                    {
+                        <div class="col-md-4 mb-3">
+                            <div class="d-flex align-items-center">
+                                <i class="bi bi-geo-alt me-2" style="color: var(--green); font-size: 1.2em;"></i>
+                                <div>
+                                    <small class="text-muted">Event Venue</small>
+                                    <div class="fw-semibold">@Model.Venue</div>
+                                </div>
+                            </div>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+
+        <!-- Event Approval Status (hide if lapsed) -->
+        @if (!isEventLapsed)
+        {
+            <div>
+                <h5 class="mb-2" style="color: var(--green); font-weight: 600;"><i class="bi bi-patch-check me-2"></i>Event Approval Status</h5>
+                <div class="d-flex align-items-center gap-3 mb-2">
+                    <span data-bs-toggle="tooltip" title="@GetOfficeDisplay("VPAA") Approval">
+                        <i class="bi bi-person-circle" style="color: @(allVPAAApproved ? "#28a745" : "#dc3545"); font-size: 1.5em;"></i>
+                        <span class="ms-1">@GetOfficeDisplay("VPAA")</span>
+                        <i class="bi @(allVPAAApproved ? "bi-check-circle-fill text-success" : "bi-x-circle-fill text-danger") ms-1"></i>
+                    </span>
+                    <span data-bs-toggle="tooltip" title="@GetOfficeDisplay("VPF") Approval">
+                        <i class="bi bi-person-circle" style="color: @(allVPFApproved ? "#28a745" : "#dc3545"); font-size: 1.5em;"></i>
+                        <span class="ms-1">@GetOfficeDisplay("VPF")</span>
+                        <i class="bi @(allVPFApproved ? "bi-check-circle-fill text-success" : "bi-x-circle-fill text-danger") ms-1"></i>
+                    </span>
+                    <span data-bs-toggle="tooltip" title="@GetOfficeDisplay("AMU") Approval">
+                        <i class="bi bi-person-circle" style="color: @(allAMIApproved ? "#28a745" : "#dc3545"); font-size: 1.5em;"></i>
+                        <span class="ms-1">@GetOfficeDisplay("AMU")</span>
+                        <i class="bi @(allAMIApproved ? "bi-check-circle-fill text-success" : "bi-x-circle-fill text-danger") ms-1"></i>
+                    </span>
+                    <span class="ms-2">
+                        <i class="bi bi-arrow-right" style="color: var(--orange); font-size: 1.2em;"></i>
+                    </span>
+                    <span data-bs-toggle="tooltip" title="@GetOfficeDisplay("VPA") Approval">
+                        <i class="bi bi-person-circle" style="color: @(allVPAApproved ? "#28a745" : "#dc3545"); font-size: 1.5em;"></i>
+                        <span class="ms-1">@GetOfficeDisplay("VPA")</span>
+                        <i class="bi @(allVPAApproved ? "bi-check-circle-fill text-success" : "bi-x-circle-fill text-danger") ms-1"></i>
+                    </span>
+                    <span class="ms-2">
+                        <i class="bi bi-arrow-right" style="color: var(--orange); font-size: 1.2em;"></i>
+                    </span>
+                    <span data-bs-toggle="tooltip" title="@GetOfficeDisplay("President") Approval">
+                        <i class="bi bi-person-circle" style="color: @(Model.Status == "ApprovedByPresident" ? "#28a745" : "#dc3545"); font-size: 1.5em;"></i>
+                        <span class="ms-1">@GetOfficeDisplay("President")</span>
+                        <i class="bi @(Model.Status == "ApprovedByPresident" ? "bi-check-circle-fill text-success" : "bi-x-circle-fill text-danger") ms-1"></i>
+                    </span>
+                </div>
+                <div class="progress mb-3" style="height: 1.2rem;">
+                    @{
+                        var approvalTotalSteps = 5;
+                        var approvalCompletedSteps = (allVPAAApproved ? 1 : 0) + (allVPFApproved ? 1 : 0) + (allAMIApproved ? 1 : 0) + (allVPAApproved ? 1 : 0) + (Model.Status == "ApprovedByPresident" ? 1 : 0);
+                    }
+                    <div class="progress-bar" role="progressbar" style="width: @(100 * approvalCompletedSteps / approvalTotalSteps)% ; background: var(--green);" aria-valuenow="@approvalCompletedSteps" aria-valuemin="0" aria-valuemax="@approvalTotalSteps">
+                        @approvalCompletedSteps/@approvalTotalSteps Steps Completed
+                    </div>
+                </div>
+            </div>
+        }
+
+        @if (!isEventLapsed && Model.Status != "SentToPresident" && Model.Status != "ApprovedByPresident")
+        {
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <button type="button" class="btn btn-custom d-flex align-items-center gap-2" data-bs-toggle="modal" data-bs-target="#createProposalModal">
+                    <i class="bi bi-plus-circle"></i> Submit Document
+                </button>
+                <button type="button" class="btn btn-custom d-flex align-items-center gap-2" data-bs-toggle="modal" data-bs-target="#trackingModal">
+                    <i class="bi bi-file-earmark-check me-2"></i>Document Tracking
+                </button>
+            </div>
+        }
+        else if (isEventLapsed)
+        {
+            <div class="alert alert-secondary mb-3">
+                <i class="bi bi-lock me-2"></i>
+                <strong>Actions Disabled:</strong> This event has lapsed. You can only view documents.
+            </div>
+        }
+        else
+        {
+            <div class="alert alert-info mb-3">
+                <i class="bi bi-info-circle me-2"></i>
+                <strong>Document Creation Disabled:</strong> This event has been sent to the President for approval. No new documents can be created at this time.
+            </div>
+        }
+
+        <hr />
+
+        <h5 class="mb-3" style="color: var(--green); font-weight: 600;"><i class="bi bi-file-earmark-text me-2"></i>Documents</h5>
+
+        @if (Model.Proposals != null && Model.Proposals.Any())
+        {
+            <div class="card shadow-sm border-0 mb-4">
+                <div class="card-body p-0">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead style="background: var(--light-yellow);">
+                            <tr>
+                                <th style="color: var(--green);">Title</th>
+                                <th style="color: var(--green);">Status</th>
+                                <th style="color: var(--green);">Submitted At</th>
+                                <th style="color: var(--green);">Receiving Office</th>
+                                <th style="color: var(--green);">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var proposal in Model.Proposals)
+                            {
+                                var canFollowUp = !isEventLapsed && canFollowUpDict.ContainsKey(proposal.EventProposalId) && canFollowUpDict[proposal.EventProposalId];
+                                var hasPendingFollowUp = !isEventLapsed && hasPendingFollowUpDict.ContainsKey(proposal.EventProposalId) && hasPendingFollowUpDict[proposal.EventProposalId];
+                                <tr class="@(isEventLapsed ? "table-secondary" : "")">
+                                    <td>@proposal.Title</td>
+                                    <td>
+                                        @if (isEventLapsed || proposal.Status == "Lapsed")
+                                        {
+                                            <span class="badge bg-dark"><i class="bi bi-clock-history me-1"></i>Lapsed</span>
+                                        }
+                                        else if (proposal.Status == "Approved")
+                                        {
+                                            <span class="badge" style="background: var(--green); color: #fff;">@GetOfficeDisplay("VPA") Approved</span>
+                                        }
+                                        else if (proposal.Status == "Reviewed")
+                                        {
+                                            <span class="badge" style="background: #17a2b8; color: #fff;">For Approval @GetOfficeDisplay("VPA")</span>
+                                        }
+                                        else if (proposal.Status == "Pending")
+                                        {
+                                            <span class="badge" style="background: var(--orange); color: #fff;">For Approval @GetOfficeDisplay(proposal.TargetOfficeRole)</span>
+                                        }
+                                        else if (proposal.Status == "Rejected")
+                                        {
+                                            <span class="badge" style="background: var(--red); color: #fff;">Returned</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="badge bg-secondary">@proposal.Status</span>
+                                        }
+                                    </td>
+                                    <td>@proposal.SubmittedAt.ToString("g")</td>
+                                    <td>@GetOfficeDisplay(proposal.TargetOfficeRole)</td>
+                                    <td>
+                                        <div class="d-flex align-items-center gap-2">
+                                            @if (isEventLapsed)
+                                            {
+                                                <!-- Only View button for lapsed events -->
+                                                <a href="@Url.Action("DetailProposal", "EventProposals", new { id = proposal.EventProposalId })" class="btn btn-sm btn-secondary"><i class="bi bi-eye me-1"></i> View</a>
+                                            }
+                                            else if (proposal.Status == "Rejected")
+                                            {
+                                                <a href="@Url.Action("DetailProposal", "EventProposals", new { id = proposal.EventProposalId })" class="btn btn-sm btn-custom"><i class="bi bi-eye me-1"></i> View</a>
+                                                <a href="@Url.Action("Resubmit", "EventProposals", new { id = proposal.EventProposalId })" class="btn btn-sm btn-warning"><i class="bi bi-arrow-repeat me-1"></i> Resubmit</a>
+                                            }
+                                            else if (proposal.Status == "Pending")
+                                            {
+                                                <a href="@Url.Action("DetailProposal", "EventProposals", new { id = proposal.EventProposalId })" class="btn btn-sm btn-custom"><i class="bi bi-eye me-1"></i> View</a>
+                                                <a href="@Url.Action("Edit", "EventProposals", new { id = proposal.EventProposalId })" class="btn btn-sm btn-info"><i class="bi bi-pencil me-1"></i> Edit</a>
+
+                                                if (canFollowUp)
+                                                {
+                                                    <button class="btn btn-sm btn-outline-primary follow-up-btn"
+                                                            data-proposal-id="@proposal.EventProposalId"
+                                                            data-office="@GetOfficeDisplay(proposal.TargetOfficeRole)"
+                                                            title="Send follow up notification to @GetOfficeDisplay(proposal.TargetOfficeRole)">
+                                                        <i class="bi bi-bell me-1"></i> Follow Up
+                                                    </button>
+                                                }
+                                                else if (hasPendingFollowUp)
+                                                {
+                                                    <button class="btn btn-sm btn-warning" disabled title="Waiting for office to read your follow-up">
+                                                        <i class="bi bi-hourglass-split me-1"></i> Pending
+                                                    </button>
+                                                }
+                                                else
+                                                {
+                                                    <button class="btn btn-sm btn-outline-secondary" disabled title="Document must be read by the office before you can follow up">
+                                                        <i class="bi bi-bell-slash me-1"></i> Follow Up
+                                                    </button>
+                                                }
+                                            }
+                                            else
+                                            {
+                                                <a href="@Url.Action("DetailProposal", "EventProposals", new { id = proposal.EventProposalId })" class="btn btn-sm btn-custom"><i class="bi bi-eye me-1"></i> View</a>
+                                            }
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        }
+        else
+        {
+            <p>No proposals submitted yet for this event.</p>
+        }
+
+        <hr />
+
+        <!-- Document Tracking Modal -->
+        <div class="modal fade" id="trackingModal" tabindex="-1" aria-labelledby="trackingModalLabel" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered" style="max-width: 600px;">
+                <div class="modal-content">
+                    <div class="modal-header" style="background: var(--light-yellow); border-bottom: 2px solid var(--orange);">
+                        <h5 class="modal-title" id="trackingModalLabel" style="color: var(--green); font-weight: 600;">
+                            <i class="bi bi-file-earmark-check me-2"></i>Document Tracking
+                        </h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body" style="max-height: 70vh; overflow-y: auto;">
+                        <p class="text-muted">Document tracking content...</p>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Create Proposal Modal (No LapseDate field) -->
+        <div class="modal fade" id="createProposalModal" tabindex="-1" aria-labelledby="createProposalModalLabel" aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header" style="background-color: var(--green); color: white;">
+                        <h5 class="modal-title" id="createProposalModalLabel">Submit New Document</h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    @using (Html.BeginForm("Create", "EventProposals", FormMethod.Post, new { enctype = "multipart/form-data" }))
+                    {
+                        @Html.AntiForgeryToken()
+                        @Html.Hidden("eventId", Model.EventId)
+
+                        <div class="modal-body">
+                            <input type="hidden" name="Title" id="modalDocumentTitle" />
+
+                            <div class="mb-3">
+                                <label for="TargetOfficeRole" class="form-label">Send To</label>
+                                @Html.DropDownList("targetOffice", new SelectList(new[] {
+                                    new { Value = "VPAA", Text = "VP Academic Affairs (VPAA)" },
+                                    new { Value = "VPF", Text = "VP Finance (VPF)" },
+                                    new { Value = "AMU", Text = "Asset Management Unit (AMU)" },
+                                    new { Value = "VPA", Text = "VP Administration (VPA)" }
+                                }, "Value", "Text"), "Select Office", new { @class = "form-control", required = "required" })
+                                <small class="form-text text-muted">Documents sent to VPAA/VPF/AMU will be automatically forwarded to VPA after approval.</small>
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label">Insert a File</label>
+                                <div class="custom-file-input">
+                                    <input type="file" name="uploadedFile" id="uploadedFile" class="form-control" accept=".pdf" required style="display: none;" />
+                                    <button type="button" class="btn btn-outline-secondary" onclick="document.getElementById('uploadedFile').click();">
+                                        <i class="bi bi-file-earmark-arrow-up me-2"></i>Insert a File
+                                    </button>
+                                    <span id="file-name" class="ms-2 text-muted"></span>
+                                </div>
+                            </div>
+
+                            @if (Model.LapseDate.HasValue)
+                            {
+                                <div class="alert alert-warning">
+                                    <i class="bi bi-exclamation-triangle me-2"></i>
+                                    <strong>Note:</strong> This event must be approved by <strong>@Model.LapseDate.Value.ToString("MMM dd, yyyy hh:mm tt")</strong> or it will lapse.
+                                </div>
+                            }
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                            <button type="submit" class="btn btn-success">Submit Proposal</button>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+
+        @section Scripts {
+            <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+            <script>
+                document.addEventListener('DOMContentLoaded', function () {
+                    var toastEl = document.getElementById('feedbackToast');
+                    if (toastEl) {
+                        var toast = new bootstrap.Toast(toastEl, { delay: 2000 });
+                        toast.show();
+                    }
+
+                    var fileInput = document.getElementById('uploadedFile');
+                    var fileNameSpan = document.getElementById('file-name');
+                    var modalDocumentTitleInput = document.getElementById('modalDocumentTitle');
+
+                    if (fileInput) {
+                        fileInput.addEventListener('change', function () {
+                            if (this.files.length > 0) {
+                                var file = this.files[0];
+                                var fileName = file.name;
+                                var fileExtension = fileName.split('.').pop().toLowerCase();
+
+                                if (fileExtension !== 'pdf') {
+                                    alert('Only PDF files are allowed. Please select a PDF file.');
+                                    this.value = '';
+                                    fileNameSpan.textContent = '';
+                                    modalDocumentTitleInput.value = '';
+                                    return;
+                                }
+
+                                fileNameSpan.textContent = fileName;
+                                var title = fileName.replace(/\.[^/.]+$/, "");
+                                modalDocumentTitleInput.value = title;
+                            } else {
+                                fileNameSpan.textContent = '';
+                                modalDocumentTitleInput.value = '';
+                            }
+                        });
+                    }
+
+                    document.querySelectorAll('.follow-up-btn').forEach(function(btn) {
+                        btn.addEventListener('click', function() {
+                            var proposalId = this.getAttribute('data-proposal-id');
+                            var office = this.getAttribute('data-office');
+                            var button = this;
+
+                            button.disabled = true;
+                            button.innerHTML = '<i class="bi bi-hourglass-split me-1"></i> Sending...';
+
+                            fetch('@Url.Action("FollowUpAjax", "EventProposals")' + '?id=' + proposalId, {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                    'RequestVerificationToken': document.querySelector('input[name="__RequestVerificationToken"]').value
+                                }
+                            })
+                            .then(function(response) { return response.json(); })
+                            .then(function(data) {
+                                if (data.success) {
+                                    showFollowUpToast('success', office + ' has been notified of this document.');
+                                    button.className = 'btn btn-sm btn-warning';
+                                    button.innerHTML = '<i class="bi bi-hourglass-split me-1"></i> Pending';
+                                    button.disabled = true;
+                                    button.title = 'Waiting for office to read your follow-up';
+                                } else {
+                                    showFollowUpToast('danger', data.message || 'Failed to send follow up.');
+                                    button.disabled = false;
+                                    button.innerHTML = '<i class="bi bi-bell me-1"></i> Follow Up';
+                                }
+                            })
+                            .catch(function(error) {
+                                console.error('Error:', error);
+                                showFollowUpToast('danger', 'An error occurred. Please try again.');
+                                button.disabled = false;
+                                button.innerHTML = '<i class="bi bi-bell me-1"></i> Follow Up';
+                            });
+                        });
+                    });
+
+                    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+                    tooltipTriggerList.map(function (tooltipTriggerEl) {
+                        return new bootstrap.Tooltip(tooltipTriggerEl);
+                    });
+                });
+
+                function showFollowUpToast(type, message) {
+                    var existingToast = document.getElementById('followUpToast');
+                    if (existingToast) {
+                        existingToast.remove();
+                    }
+
+                    var toastContainer = document.querySelector('.toast-container');
+                    if (!toastContainer) {
+                        toastContainer = document.createElement('div');
+                        toastContainer.className = 'toast-container position-fixed top-0 end-0 p-3';
+                        toastContainer.style.zIndex = '1080';
+                        document.body.appendChild(toastContainer);
+                    }
+
+                    var iconClass = type === 'success' ? 'check-circle' : 'exclamation-circle';
+                    var toastHtml = '<div class="toast align-items-center text-bg-' + type + ' border-0 show" role="alert" id="followUpToast">' +
+                        '<div class="d-flex">' +
+                        '<div class="toast-body">' +
+                        '<i class="bi bi-' + iconClass + ' me-2"></i>' + message +
+                        '</div>' +
+                        '<button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>' +
+                        '</div>' +
+                        '</div>';
+
+                    toastContainer.innerHTML = toastHtml;
+
+                    var toastEl = document.getElementById('followUpToast');
+                    var toast = new bootstrap.Toast(toastEl, { delay: 3000 });
+                    toast.show();
+                }
+            </script>
+        }
+    </div>
+</div>

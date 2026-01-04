@@ -1,0 +1,210 @@
+﻿@using EventSwift.Models
+
+@{
+    ViewBag.Title = "Office Dashboard";
+    ViewBag.SkipNavbar = true; // We are using custom navbar
+
+    // Cast ViewBag.RecentProposals to strongly typed list for easy access
+    var recentProposals = ViewBag.RecentProposals as List<ProposalSummaryVM>;
+}
+
+<div class="d-flex">
+    @Html.Partial("~/Views/Shared/_Sidebar.cshtml")
+
+    <div class="flex-grow-1 p-4">
+        @Html.Partial("~/Views/Shared/_Navbar.cshtml")
+
+        <!-- Dashboard Header -->
+        <div class="d-flex align-items-center mb-4">
+            <div class="border-start border-3 ps-3 me-3" style="border-left-color: var(--green) !important;">
+                <h2 class="mb-0" style="color: var(--green); font-weight: 600;">
+                    <i class="bi bi-speedometer2 me-2"></i>Office Dashboard
+                </h2>
+                <small class="text-muted">Manage and review event proposals</small>
+            </div>
+        </div>
+
+        <!-- Statistics Cards -->
+        <div class="row mb-4">
+            <div class="col-md-3 mb-3">
+                <div class="card shadow-sm border-0 h-100">
+                    <div class="card-body text-center">
+                        <div class="d-flex align-items-center justify-content-center mb-3">
+                            <div class="rounded-circle d-flex align-items-center justify-content-center me-3" style="width: 60px; height: 60px; background: var(--brown);">
+                                <i class="bi bi-calendar-event text-white" style="font-size: 1.5rem;"></i>
+                            </div>
+                            <div>
+                                <h3 class="mb-0 fw-bold" style="color: var(--brown);">@(recentProposals != null ? recentProposals.Count : 0)</h3>
+                                <small class="text-muted">Total Events</small>
+                            </div>
+                        </div>
+                        <h6 class="card-title mb-0" style="color: var(--brown);">Total Events</h6>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3 mb-3">
+                <div class="card shadow-sm border-0 h-100">
+                    <div class="card-body text-center">
+                        <div class="d-flex align-items-center justify-content-center mb-3">
+                            <div class="rounded-circle d-flex align-items-center justify-content-center me-3" style="width: 60px; height: 60px; background: var(--orange);">
+                                <i class="bi bi-clock-history text-white" style="font-size: 1.5rem;"></i>
+                            </div>
+                            <div>
+                                <h3 class="mb-0 fw-bold" style="color: var(--orange);">@ViewBag.PendingProposals</h3>
+                                <small class="text-muted">For Approval</small>
+                            </div>
+                        </div>
+                        <h6 class="card-title mb-0" style="color: var(--orange);">For Approval</h6>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3 mb-3">
+                <div class="card shadow-sm border-0 h-100">
+                    <div class="card-body text-center">
+                        <div class="d-flex align-items-center justify-content-center mb-3">
+                            <div class="rounded-circle d-flex align-items-center justify-content-center me-3" style="width: 60px; height: 60px; background: var(--green);">
+                                <i class="bi bi-check-circle text-white" style="font-size: 1.5rem;"></i>
+                            </div>
+                            <div>
+                                <h3 class="mb-0 fw-bold" style="color: var(--success);">@ViewBag.ApprovedProposals</h3>
+                                <small class="text-muted">Approved</small>
+                            </div>
+                        </div>
+                        <h6 class="card-title mb-0" style="color: var(--success);">Approved Documents</h6>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3 mb-3">
+                <div class="card shadow-sm border-0 h-100">
+                    <div class="card-body text-center">
+                        <div class="d-flex align-items-center justify-content-center mb-3">
+                            <div class="rounded-circle d-flex align-items-center justify-content-center me-3" style="width: 60px; height: 60px; background: #dc133b;">
+                                <i class="bi bi-arrow-left-circle text-white" style="font-size: 1.5rem;"></i>
+                            </div>
+                            <div>
+                                <h3 class="mb-0 fw-bold" style="color: #dc133b;">@ViewBag.RejectedProposals</h3>
+                                <small class="text-muted">Returned</small>
+                            </div>
+                        </div>
+                        <h6 class="card-title mb-0" style="color: #dc133b;">Returned Documents</h6>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Recent Proposals Section -->
+        <div class="card shadow-sm border-0">
+            <div class="card-header" style="background: var(--light-yellow); border-bottom: 2px solid var(--orange);">
+                <h5 class="mb-0" style="color: var(--green); font-weight: 600;">
+                    <i class="bi bi-file-earmark-text me-2"></i>Recent Proposals
+                </h5>
+            </div>
+            <div class="card-body p-0">
+                @if (recentProposals != null && recentProposals.Any())
+                {
+                    <div class="list-group list-group-flush">
+                        @foreach (var proposal in recentProposals)
+                        {
+                            <div class="list-group-item border-0 py-3 px-4">
+                                <div class="d-flex justify-content-between align-items-start">
+                                    <div class="flex-grow-1">
+                                        <div class="d-flex align-items-center mb-2">
+                                            <i class="bi bi-file-earmark-text me-2" style="color: var(--green);"></i>
+                                            <h6 class="mb-0 fw-semibold">
+                                                <a href="@Url.Action("Details", "ProposalApprovals", new { id = proposal.ProposalApprovalId })"
+                                                   class="text-decoration-none" style="color: var(--green);">
+                                                    @proposal.Title
+                                                </a>
+                                            </h6>
+                                        </div>
+                                        <div class="d-flex align-items-center text-muted small mb-1">
+                                            <i class="bi bi-calendar-event me-1"></i>
+                                            <span><strong>Event:</strong> @proposal.EventTitle</span>
+                                        </div>
+                                        <div class="d-flex align-items-center text-muted small">
+                                            <i class="bi bi-clock me-1"></i>
+                                            <span>@((proposal.SubmittedAt != null) ? proposal.SubmittedAt.ToString("MMM dd, yyyy 'at' HH:mm") : "Date not available")</span>
+                                        </div>
+                                    </div>
+                                    <div class="ms-3">
+                                        @{
+                                            var statusBadgeClass = "";
+                                            var statusIcon = "";
+                                            var statusText = proposal.Status;
+
+                                            if (proposal.Status == "Pending")
+                                            {
+                                                statusBadgeClass = "bg-warning text-dark";
+                                                statusIcon = "bi-clock";
+                                                statusText = "For Approval";
+                                            }
+                                            else if (proposal.Status == "Approved")
+                                            {
+                                                statusBadgeClass = "bg-success";
+                                                statusIcon = "bi-check-circle";
+                                                statusText = "Approved";
+                                            }
+                                            else if (proposal.Status == "Rejected")
+                                            {
+                                                statusBadgeClass = "bg-danger";
+                                                statusIcon = "bi-x-circle";
+                                                statusText = "Returned";
+                                            }
+                                            else
+                                            {
+                                                statusBadgeClass = "bg-secondary";
+                                                statusIcon = "bi-question-circle";
+                                            }
+                                        }
+                                        <span class="badge rounded-pill px-3 py-2 fw-semibold @statusBadgeClass">
+                                            <i class="bi @statusIcon me-1"></i>
+                                            @statusText
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                }
+                else
+                {
+                    <div class="text-center py-5">
+                        <i class="bi bi-file-earmark-x" style="font-size: 3rem; color: var(--orange);"></i>
+                        <h5 class="mt-3 mb-2" style="color: var(--green);">No Recent Proposals</h5>
+                        <p class="text-muted mb-0">No proposals have been submitted yet.</p>
+                    </div>
+                }
+            </div>
+        </div>
+
+        <!-- Quick Actions -->
+        <div class="row mt-4">
+            <div class="col-12">
+                <div class="card shadow-sm border-0">
+                    <div class="card-header" style="background: var(--light-yellow); border-bottom: 2px solid var(--orange);">
+                        <h5 class="mb-0" style="color: var(--green); font-weight: 600;">
+                            <i class="bi bi-lightning me-2"></i>Quick Actions
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <a href="@Url.Action("ApprovalsIndex", "ProposalApprovals")" class="btn btn-custom w-100 d-flex align-items-center justify-content-center gap-2 py-3">
+                                    <i class="bi bi-folder-check"></i>
+                                    <span>Review All Proposals</span>
+                                </a>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <a href="@Url.Action("Index", "Notifications")" class="btn btn-outline-custom w-100 d-flex align-items-center justify-content-center gap-2 py-3">
+                                    <i class="bi bi-bell"></i>
+                                    <span>View Notifications</span>
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>

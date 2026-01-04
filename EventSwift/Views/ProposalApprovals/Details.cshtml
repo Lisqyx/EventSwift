@@ -1,0 +1,535 @@
+﻿@model EventSwift.Models.ProposalApproval
+
+@{
+    ViewBag.Title = "Approval Details";
+    ViewBag.SkipNavbar = true;
+
+    var fileName = System.IO.Path.GetFileName(Model.EventProposal.FilePath);
+    var fileExt = System.IO.Path.GetExtension(fileName)?.ToLower();
+
+    // Check if event is lapsed
+    var isEventLapsed = Model.EventProposal?.Event?.Status == "Lapsed" ||
+                        (Model.EventProposal?.Event?.IsLapsed ?? false);
+    var lapseDate = Model.EventProposal?.Event?.LapseDate;
+
+    // Get current user role directly from database
+    var currentUserRole = "";
+    if (User.Identity.IsAuthenticated)
+    {
+        using (var db = new EventSwift.Models.DefaultConnection())
+        {
+            var user = db.Users.FirstOrDefault(u => u.Username == User.Identity.Name);
+            currentUserRole = user?.Role ?? "";
+        }
+    }
+    var isVPA = currentUserRole == "VPA";
+}
+
+<div class="d-flex">
+    @Html.Partial("~/Views/Shared/_Sidebar.cshtml")
+
+    <div class="flex-grow-1 p-4">
+        @Html.Partial("~/Views/Shared/_Navbar.cshtml")
+
+        <!-- Section Header -->
+        <div class="d-flex align-items-center mb-4">
+            <div class="border-start border-3 ps-3 me-3" style="border-left-color: var(--green) !important;">
+                <h2 class="mb-0" style="color: var(--green); font-weight: 600;">
+                    <i class="bi bi-file-earmark-check me-2"></i>Approval Details
+                </h2>
+                <small class="text-muted">Review and take action on this document</small>
+            </div>
+        </div>
+
+        <div class="d-flex justify-content-end mb-4">
+            @if (ViewBag.Role == "VPA")
+            {
+                <a href="@Url.Action("VPAEventOverview", "ProposalApprovals", new { id = ViewBag.EventId })"
+                   class="btn btn-outline-custom">
+                    <i class="bi bi-arrow-left me-2"></i>Back to VPA Overview
+                </a>
+            }
+            else
+            {
+                <a href="@Url.Action("EventDetails", "ProposalApprovals", new { id = ViewBag.EventId })"
+                   class="btn btn-outline-custom">
+                    <i class="bi bi-arrow-left me-2"></i>Back to Event Details
+                </a>
+            }
+        </div>
+
+        @if (isEventLapsed)
+        {
+            <div class="alert alert-dark mb-4">
+                <i class="bi bi-clock-history me-2"></i>
+                <strong>This event has lapsed.</strong>
+                @if (lapseDate.HasValue)
+                {
+                    <span>The lapse date was @lapseDate.Value.ToString("MMM dd, yyyy hh:mm tt").</span>
+                }
+                <span>You can only view this document. No actions can be taken.</span>
+            </div>
+        }
+
+        <div class="row g-4">
+            <!-- Proposal Details Card -->
+            <div class="col-lg-6">
+                <div class="card shadow-sm border-0 mb-4">
+                    <div class="card-header" style="background: var(--light-yellow); border-bottom: 2px solid var(--orange);">
+                        <h5 class="mb-0" style="color: var(--green); font-weight: 600;">
+                            <i class="bi bi-info-circle me-2"></i>Document Information
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <dl class="row mb-0">
+                            <dt class="col-sm-5">Document Title</dt>
+                            <dd class="col-sm-7 fw-semibold">@Model.EventProposal.Title</dd>
+                            <dt class="col-sm-5">Document Status</dt>
+                            <dd class="col-sm-7">
+                                @if (isEventLapsed)
+                                {
+                                    <span class="badge bg-dark"><i class="bi bi-clock-history me-1"></i>Lapsed</span>
+                                }
+                                else if (Model.EventProposal.Status == "Approved")
+                                {
+                                    <span class="badge" style="background: var(--green); color: #fff;">VPA Approved</span>
+                                }
+                                else if (Model.EventProposal.Status == "Reviewed")
+                                {
+                                    <span class="badge" style="background: #17a2b8; color: #fff;">For Approval VPA</span>
+                                }
+                                else if (Model.EventProposal.Status == "Pending")
+                                {
+                                    <span class="badge" style="background: var(--orange); color: #fff;">For Approval @Model.EventProposal.TargetOfficeRole</span>
+                                }
+                                else if (Model.EventProposal.Status == "Rejected")
+                                {
+                                    <span class="badge" style="background: var(--red); color: #fff;">Returned</span>
+                                }
+                                else
+                                {
+                                    <span class="badge bg-secondary">@Model.EventProposal.Status</span>
+                                }
+                            </dd>
+                            <dt class="col-sm-5">Submitted At</dt>
+                            <dd class="col-sm-7">@Model.EventProposal.SubmittedAt.ToString("g")</dd>
+                            @if (lapseDate.HasValue)
+                            {
+                                <dt class="col-sm-5">Event Lapse Date</dt>
+                                <dd class="col-sm-7">
+                                    @if (isEventLapsed)
+                                    {
+                                        <span class="text-danger"><i class="bi bi-x-circle me-1"></i>@lapseDate.Value.ToString("g") (Lapsed)</span>
+                                    }
+                                    else
+                                    {
+                                        var daysLeft = (lapseDate.Value - DateTime.Now).TotalDays;
+                                        if (daysLeft <= 1)
+                                        {
+                                            <span class="text-danger fw-bold"><i class="bi bi-exclamation-triangle me-1"></i>@lapseDate.Value.ToString("g")</span>
+                                        }
+                                        else if (daysLeft <= 3)
+                                        {
+                                            <span class="text-warning"><i class="bi bi-clock me-1"></i>@lapseDate.Value.ToString("g")</span>
+                                        }
+                                        else
+                                        {
+                                            <span>@lapseDate.Value.ToString("g")</span>
+                                        }
+                                    }
+                                </dd>
+                            }
+                            <dt class="col-sm-5">Approval Office</dt>
+                            <dd class="col-sm-7">@Model.Office</dd>
+                            <dt class="col-sm-5">Approval Status</dt>
+                            <dd class="col-sm-7">
+                                @if (isEventLapsed)
+                                {
+                                    <span class="badge bg-dark"><i class="bi bi-clock-history me-1"></i>Lapsed</span>
+                                }
+                                else if (Model.Status == "Approved")
+                                {
+                                    <span class="badge" style="background: var(--green); color: #fff;">Approved</span>
+                                }
+                                else if (Model.Status == "Pending")
+                                {
+                                    <span class="badge" style="background: var(--orange); color: #fff;">For Approval @Model.Office</span>
+                                }
+                                else if (Model.Status == "Rejected")
+                                {
+                                    <span class="badge" style="background: var(--red); color: #fff;">Returned</span>
+                                }
+                                else
+                                {
+                                    <span class="badge bg-secondary">@Model.Status</span>
+                                }
+                            </dd>
+                            @if (Model.Office == "VPA" && Model.ActionDate.HasValue)
+                            {
+                                <dt class="col-sm-5">Action Date</dt>
+                                <dd class="col-sm-7">@Model.ActionDate.Value.ToString("g")</dd>
+                            }
+                            <dt class="col-sm-5">Document File</dt>
+                            <dd class="col-sm-7">
+                                <a href="@Url.Content(Model.EventProposal.FilePath)" target="_blank" class="btn btn-sm btn-outline-custom me-2 mb-1"><i class="bi bi-eye"></i> View</a>
+                                <a href="@Url.Content(Model.EventProposal.FilePath)" download class="btn btn-sm btn-outline-custom mb-1"><i class="bi bi-download"></i> Download</a>
+                            </dd>
+                        </dl>
+                    </div>
+                </div>
+
+                <!-- Approve/Return Form - Only show if NOT lapsed -->
+                @if (!isEventLapsed && (Model.Status == "Pending" || Model.Status == "Resubmitted"))
+                {
+                    <div class="card shadow-sm border-0 mb-4">
+                        <div class="card-header" style="background: var(--light-yellow); border-bottom: 2px solid var(--orange);">
+                            <h5 class="mb-0" style="color: var(--green); font-weight: 600;">
+                                <i class="bi bi-check2-square me-2"></i>Take Action
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            @if (Model.Office == "VPA" && Model.EventProposal.TargetOfficeRole == "VPA")
+                            {
+                                <div class="alert alert-info mb-3">
+                                    <i class="bi bi-info-circle me-1"></i>
+                                    <strong>VPA Approval:</strong> You must select an event date, time, and venue when approving this document.
+                                </div>
+
+                                <div class="row mb-3">
+                                    <div class="col-md-6">
+                                        <label for="modalEventDate" class="form-label">Event Date:</label>
+                                        <input type="date" class="form-control" id="modalEventDate" name="eventDate" value="@DateTime.Now.ToString("yyyy-MM-dd")" required />
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label for="modalEventTime" class="form-label">Event Time:</label>
+                                        <input type="time" class="form-control" id="modalEventTime" name="eventTime" value="09:00" required />
+                                    </div>
+                                </div>
+                                <div class="row mb-3">
+                                    <div class="col-md-12">
+                                        <label for="modalEventVenue" class="form-label">Event Venue:</label>
+                                        <input type="text" class="form-control" id="modalEventVenue" name="eventVenue" placeholder="Enter venue location" required />
+                                    </div>
+                                </div>
+                            }
+
+                            @using (Html.BeginForm("Action", "ProposalApprovals", FormMethod.Post, new { enctype = "multipart/form-data", id = "approvalForm" }))
+                            {
+                                @Html.AntiForgeryToken()
+                                <input type="hidden" name="id" value="@Model.ProposalApprovalId" />
+                                <input type="hidden" name="eventDate" id="selectedEventDate" value="" />
+                                <input type="hidden" name="eventVenue" id="selectedEventVenue" value="" />
+                                <input type="hidden" name="signatureData" id="signatureData" />
+                                <input type="hidden" name="approvalPassword" id="approvalPasswordHidden" />
+                                <input type="hidden" name="action" id="actionHidden" value="Approve" />
+                                <input type="hidden" id="feedbackMessage" name="feedbackMessage" />
+
+                                <button type="button" id="approveBtn" class="btn btn-success me-2">
+                                    <i class="bi bi-check-circle me-1"></i>Approve
+                                </button>
+                                <button type="button" id="rejectBtn" class="btn btn-danger"><i class="bi bi-x-circle me-1"></i>Return</button>
+                                @Html.ActionLink("Cancel", "ApprovalsIndex", null, new { @class = "btn btn-outline-custom ms-2" })
+                            }
+                        </div>
+                    </div>
+                }
+                else if (isEventLapsed)
+                {
+                    <div class="card shadow-sm border-0 mb-4">
+                        <div class="card-header" style="background: #6c757d; border-bottom: 2px solid #495057;">
+                            <h5 class="mb-0 text-white">
+                                <i class="bi bi-lock me-2"></i>Actions Disabled
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <p class="text-muted mb-0">
+                                <i class="bi bi-info-circle me-2"></i>
+                                This event has lapsed. No approval or return actions can be taken on this document.
+                            </p>
+                        </div>
+                    </div>
+                }
+            </div>
+
+            <!-- File Preview Card -->
+            <div class="col-lg-6">
+                <div class="card shadow-sm border-0 mb-4">
+                    <div class="card-header" style="background: var(--light-yellow); border-bottom: 2px solid var(--orange);">
+                        <h5 class="mb-0" style="color: var(--green); font-weight: 600;">
+                            <i class="bi bi-file-earmark-text me-2"></i>File Preview
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        @if (fileExt == ".txt")
+                        {
+                            string fullPath = Server.MapPath(Model.EventProposal.FilePath);
+                            string fileContent = System.IO.File.Exists(fullPath) ? System.IO.File.ReadAllText(fullPath) : "File not found.";
+                            <pre style="background-color:#f8f9fa; border: 1px solid #ddd; padding: 10px; max-height: 500px; overflow-y: auto;">@fileContent</pre>
+                        }
+                        else if (fileExt == ".doc" || fileExt == ".docx")
+                        {
+                            <p>Preview not available for Word documents.</p>
+                            <a href="@Url.Content(Model.EventProposal.FilePath)" class="btn btn-primary mb-3" target="_blank">Download @fileName</a>
+                            <hr />
+                            <p>Or view online via Google Docs:</p>
+                            <iframe src="https://docs.google.com/gview?url=@(Request.Url.GetLeftPart(UriPartial.Authority) + Url.Content(Model.EventProposal.FilePath))&embedded=true"
+                                    style="width:100%; height:500px;" frameborder="0">
+                                Your browser does not support iframes.
+                            </iframe>
+                        }
+                        else if (fileExt == ".pdf")
+                        {
+                            <iframe src="@Url.Content(Model.EventProposal.FilePath)" style="width: 100%; height: 500px;" frameborder="0">
+                                This browser does not support PDFs. Please download the file to view it:
+                                <a href="@Url.Content(Model.EventProposal.FilePath)">Download file</a>.
+                            </iframe>
+                        }
+                        else
+                        {
+                            <p>No file uploaded or preview not available.</p>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@if (!isEventLapsed)
+{
+    <!-- Approval Modal for Password and E-Signature -->
+    <div class="modal fade" id="approveModal" tabindex="-1" aria-labelledby="approveModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="approveModalLabel">Confirm Approval</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body d-flex">
+                    <div class="flex-fill me-4">
+                        <label for="approvalPasswordInput" class="form-label">Enter your password:</label>
+                        <input type="password" class="form-control" id="approvalPasswordInput" required>
+                    </div>
+                    <div class="flex-fill">
+                        <label class="form-label">E-Signature:</label>
+                        <canvas id="signaturePad" style="border:1px solid #ccc; width:100%; height:150px;"></canvas>
+                        <div class="mt-2 d-flex gap-2">
+                            <button type="button" class="btn btn-sm btn-secondary" id="clearSignature">Clear</button>
+                            <button type="button" class="btn btn-sm btn-primary" id="uploadSignatureBtn">Upload Image</button>
+                        </div>
+                        <input type="file" id="signatureUploadInput" accept="image/*" hidden>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-success" id="confirmApprovalBtn">Confirm Approval</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Return Modal for Password and Remarks -->
+    <div class="modal fade" id="returnModal" tabindex="-1" aria-labelledby="returnModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-md modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="returnModalLabel">Confirm Return</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="returnFeedbackInput" class="form-label">Remarks for return:</label>
+                        <textarea class="form-control" id="returnFeedbackInput" rows="4" required></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label for="returnPasswordInput" class="form-label">Enter your password:</label>
+                        <input type="password" class="form-control" id="returnPasswordInput" required>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-danger" id="confirmReturnBtn">Confirm Return</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- Toast for success messages -->
+<div aria-live="polite" aria-atomic="true" class="position-fixed top-0 end-0 p-3" style="z-index: 1080; min-width: 300px;">
+    <div id="actionToast" class="toast align-items-center text-bg-success border-0" role="alert" style="display:none;">
+        <div class="d-flex">
+            <div class="toast-body" id="actionToastBody"></div>
+            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    @if (!isEventLapsed)
+    {
+        <script src="https://cdn.jsdelivr.net/npm/signature_pad@4.1.6/dist/signature_pad.umd.min.js"></script>
+        <script>
+            const rejectBtn = document.getElementById('rejectBtn');
+            const approveBtn = document.getElementById('approveBtn');
+            const selectedEventDate = document.getElementById('selectedEventDate');
+            const selectedEventVenue = document.getElementById('selectedEventVenue');
+            const modalEventDate = document.getElementById('modalEventDate');
+            const modalEventTime = document.getElementById('modalEventTime');
+            const modalEventVenue = document.getElementById('modalEventVenue');
+            const isVPAOffice = @(Model.Office == "VPA" && Model.EventProposal.TargetOfficeRole == "VPA" ? "true" : "false");
+
+            if (rejectBtn) {
+                rejectBtn.addEventListener('click', function (e) {
+                    e.preventDefault();
+                    document.getElementById('returnFeedbackInput').value = '';
+                    document.getElementById('returnPasswordInput').value = '';
+                    const returnModal = new bootstrap.Modal(document.getElementById('returnModal'));
+                    returnModal.show();
+                });
+            }
+
+            function showToast(message, isError) {
+                var toast = document.getElementById('actionToast');
+                var toastBody = document.getElementById('actionToastBody');
+                toastBody.textContent = message;
+                toast.classList.remove('text-bg-success', 'text-bg-danger');
+                toast.classList.add(isError ? 'text-bg-danger' : 'text-bg-success');
+                toast.style.display = 'block';
+                var bsToast = bootstrap.Toast.getOrCreateInstance(toast, { delay: 4000 });
+                bsToast.show();
+            }
+
+            function setBtnLoading(btn, isLoading) {
+                if (!btn) return;
+                if (!btn.dataset.originalHtml) btn.dataset.originalHtml = btn.innerHTML;
+                if (isLoading) {
+                    btn.disabled = true;
+                    btn.classList.remove('btn-loading');
+                    btn.classList.add('is-loading');
+                    btn.innerHTML = 'Loading...';
+                } else {
+                    btn.disabled = false;
+                    btn.classList.remove('is-loading');
+                    btn.classList.remove('btn-loading');
+                    btn.innerHTML = btn.dataset.originalHtml;
+                }
+            }
+
+            document.addEventListener('DOMContentLoaded', function () {
+                var msg = localStorage.getItem('actionToastMessage');
+                var isError = localStorage.getItem('actionToastIsError') === 'true';
+                if (msg) {
+                    showToast(msg, isError);
+                    localStorage.removeItem('actionToastMessage');
+                    localStorage.removeItem('actionToastIsError');
+                }
+            });
+
+            if (approveBtn) {
+                approveBtn.addEventListener('click', function (e) {
+                    if (isVPAOffice) {
+                        if (!modalEventDate.value) { alert('Please select an event date before approving.'); modalEventDate.focus(); return; }
+                        if (!modalEventTime.value) { alert('Please select an event time before approving.'); modalEventTime.focus(); return; }
+                        if (!modalEventVenue.value.trim()) { alert('Please enter an event venue before approving.'); modalEventVenue.focus(); return; }
+                        const dateTimeValue = modalEventDate.value + 'T' + modalEventTime.value;
+                        selectedEventDate.value = dateTimeValue;
+                        selectedEventVenue.value = modalEventVenue.value.trim();
+                    }
+                    const approveModal = new bootstrap.Modal(document.getElementById('approveModal'));
+                    approveModal.show();
+                });
+            }
+
+            let signaturePad;
+
+            document.addEventListener('DOMContentLoaded', function () {
+                const canvas = document.getElementById('signaturePad');
+                if (canvas) {
+                    signaturePad = new SignaturePad(canvas);
+                    document.getElementById('clearSignature').onclick = () => signaturePad.clear();
+                    document.getElementById('uploadSignatureBtn').addEventListener("click", function () {
+                        document.getElementById('signatureUploadInput').click();
+                    });
+                    document.getElementById("signatureUploadInput").addEventListener("change", function (e) {
+                        const file = e.target.files[0];
+                        if (!file) return;
+                        const reader = new FileReader();
+                        reader.onload = function (event) {
+                            const img = new Image();
+                            img.onload = function () {
+                                const ctx = canvas.getContext("2d");
+                                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                                ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                                signaturePad._isEmpty = false;
+                            };
+                            img.src = event.target.result;
+                        };
+                        reader.readAsDataURL(file);
+                    });
+                }
+            });
+
+            document.getElementById('confirmApprovalBtn').addEventListener('click', function () {
+                const btn = this;
+                setBtnLoading(btn, false);
+                const passwordInput = document.getElementById('approvalPasswordInput');
+                if (!passwordInput.value) { alert('Please enter your password.'); passwordInput.focus(); setBtnLoading(btn, false); return; }
+                if (!signaturePad || signaturePad.isEmpty()) { alert('Please provide your e-signature.'); setBtnLoading(btn, false); return; }
+                setBtnLoading(btn, true);
+                document.getElementById('approvalPasswordHidden').value = passwordInput.value;
+                document.getElementById('signatureData').value = signaturePad.toDataURL();
+                document.getElementById('actionHidden').value = 'Approve';
+                var $form = $('#approvalForm');
+                var formData = new FormData($form[0]);
+                $.ajax({
+                    url: $form.attr('action'), type: 'POST', data: formData, processData: false, contentType: false,
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                }).done(function (resp) {
+                    if (resp && resp.success) {
+                        localStorage.setItem('actionToastMessage', resp.message);
+                        localStorage.setItem('actionToastIsError', 'false');
+                        location.reload();
+                    } else {
+                        showToast((resp && resp.message) ? resp.message : 'An error occurred.', true);
+                        setBtnLoading(btn, false);
+                    }
+                }).fail(function (xhr) {
+                    var msg = xhr.responseJSON && xhr.responseJSON.message ? xhr.responseJSON.message : 'An error occurred.';
+                    showToast(msg, true);
+                    setBtnLoading(btn, false);
+                });
+            });
+
+            document.getElementById('confirmReturnBtn').addEventListener('click', function () {
+                const btn = this;
+                setBtnLoading(btn, false);
+                const feedbackInput = document.getElementById('returnFeedbackInput');
+                const passwordInput = document.getElementById('returnPasswordInput');
+                if (!feedbackInput.value.trim()) { alert('Please provide remarks.'); feedbackInput.focus(); setBtnLoading(btn, false); return; }
+                if (!passwordInput.value) { alert('Please enter your password.'); passwordInput.focus(); setBtnLoading(btn, false); return; }
+                setBtnLoading(btn, true);
+                document.getElementById('feedbackMessage').value = feedbackInput.value;
+                document.getElementById('approvalPasswordHidden').value = passwordInput.value;
+                document.getElementById('actionHidden').value = 'Reject';
+                var $form = $('#approvalForm');
+                var formData = new FormData($form[0]);
+                $.ajax({
+                    url: $form.attr('action'), type: 'POST', data: formData, processData: false, contentType: false,
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                }).done(function (resp) {
+                    if (resp && resp.success) {
+                        localStorage.setItem('actionToastMessage', resp.message);
+                        localStorage.setItem('actionToastIsError', 'false');
+                        location.reload();
+                    } else {
+                        showToast((resp && resp.message) ? resp.message : 'An error occurred.', true);
+                        setBtnLoading(btn, false);
+                    }
+                }).fail(function (xhr) {
+                    var msg = xhr.responseJSON && xhr.responseJSON.message ? xhr.responseJSON.message : 'An error occurred.';
+                    showToast(msg, true);
+                    setBtnLoading(btn, false);
+                });
+            });
+        </script>
+    }
+}
