@@ -5,6 +5,7 @@
 @{
     ViewBag.Title = "My Events";
     ViewBag.SkipNavbar = true;
+    var currentFilter = ViewBag.CurrentFilter as string ?? "All";
 }
 
 <style>
@@ -45,8 +46,41 @@
         opacity: 0.5;
         cursor: not-allowed;
     }
-</style>
 
+    /* Filter styles */
+    .filter-btn {
+        border: 2px solid #dee2e6;
+        background: #fff;
+        color: #495057;
+        font-weight: 500;
+        padding: 8px 16px;
+        border-radius: 20px;
+        transition: all 0.2s ease-in-out;
+        font-size: 0.9rem;
+    }
+
+        .filter-btn:hover {
+            border-color: var(--green);
+            color: var(--green);
+        }
+
+        .filter-btn.active {
+            background: var(--green);
+            border-color: var(--green);
+            color: #fff;
+        }
+
+            .filter-btn.active:hover {
+                background: var(--green);
+                color: #fff;
+            }
+
+        .filter-btn .badge {
+            font-size: 0.75rem;
+            padding: 3px 8px;
+            margin-left: 5px;
+        }
+</style>
 
 <div class="d-flex">
     @Html.Partial("~/Views/Shared/_Sidebar.cshtml")
@@ -60,6 +94,51 @@
             <button class="btn btn-custom" style="font-weight: 600; font-size: 0.97rem;" data-bs-toggle="modal" data-bs-target="#createEventModal">
                 + Propose New Event
             </button>
+        </div>
+
+        <!-- Filter Section -->
+        <div class="card shadow-sm border-0 mb-3">
+            <div class="card-body py-3">
+                <div class="d-flex align-items-center flex-wrap gap-2">
+                    <span class="me-2 fw-semibold" style="color: var(--green);"><i class="bi bi-funnel me-1"></i>Filter:</span>
+
+                    <a href="@Url.Action("Index", new { filter = "All" })"
+                       class="filter-btn @(currentFilter == "All" ? "active" : "")">
+                        <i class="bi bi-grid me-1"></i>All
+                        <span class="badge @(currentFilter == "All" ? "bg-light text-dark" : "bg-secondary")">@ViewBag.AllCount</span>
+                    </a>
+
+                    <a href="@Url.Action("Index", new { filter = "Pending" })"
+                       class="filter-btn @(currentFilter == "Pending" ? "active" : "")">
+                        <i class="bi bi-hourglass-split me-1"></i>Pending
+                        <span class="badge @(currentFilter == "Pending" ? "bg-light text-dark" : "bg-warning text-dark")">@ViewBag.PendingCount</span>
+                    </a>
+
+                    <a href="@Url.Action("Index", new { filter = "SentToPresident" })"
+                       class="filter-btn @(currentFilter == "SentToPresident" ? "active" : "")">
+                        <i class="bi bi-send me-1"></i>Sent to President
+                        <span class="badge @(currentFilter == "SentToPresident" ? "bg-light text-dark" : "bg-info")">@ViewBag.SentToPresidentCount</span>
+                    </a>
+
+                    <a href="@Url.Action("Index", new { filter = "ApprovedByPresident" })"
+                       class="filter-btn @(currentFilter == "ApprovedByPresident" ? "active" : "")">
+                        <i class="bi bi-check-circle me-1"></i>Approved
+                        <span class="badge @(currentFilter == "ApprovedByPresident" ? "bg-light text-dark" : "bg-success")">@ViewBag.ApprovedCount</span>
+                    </a>
+
+                    <a href="@Url.Action("Index", new { filter = "Rejected" })"
+                       class="filter-btn @(currentFilter == "Rejected" ? "active" : "")">
+                        <i class="bi bi-x-circle me-1"></i>Returned
+                        <span class="badge @(currentFilter == "Rejected" ? "bg-light text-dark" : "bg-danger")">@ViewBag.RejectedCount</span>
+                    </a>
+
+                    <a href="@Url.Action("Index", new { filter = "Lapsed" })"
+                       class="filter-btn @(currentFilter == "Lapsed" ? "active" : "")">
+                        <i class="bi bi-clock-history me-1"></i>Lapsed
+                        <span class="badge @(currentFilter == "Lapsed" ? "bg-light text-dark" : "bg-dark")">@ViewBag.LapsedCount</span>
+                    </a>
+                </div>
+            </div>
         </div>
 
         <div aria-live="polite" aria-atomic="true"
@@ -208,7 +287,7 @@
             </div>
         </div>
 
-        @* Add a hidden form for deletion, and a modal for confirmation *@
+        <!-- Delete Confirmation Modal -->
         <div id="deleteConfirmModal" class="modal fade" tabindex="-1" aria-labelledby="deleteConfirmModalLabel" aria-hidden="true">
             <div class="modal-dialog modal-dialog-centered">
                 <div class="modal-content">
@@ -233,118 +312,110 @@
 
         <div class="card shadow-sm border-0">
             <div class="card-body p-0">
-                <table class="table table-hover align-middle mb-0">
-                    <thead style="background: var(--light-yellow);">
-                        <tr>
-                            <th style="color: var(--green);">Title</th>
-                            <th style="color: var(--green);">Lapse Date</th>
-                            <th style="color: var(--green);">Status</th>
-                            <th style="color: var(--green);">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @foreach (var item in Model)
-                        {
-                            var isLapsed = item.Status == "Lapsed" || item.IsLapsed;
-                            <tr class="@(isLapsed ? "table-secondary" : "")">
-                                <td>@item.Title</td>
-                                <td>
-                                    @if (item.LapseDate.HasValue)
-                                    {
-                                        var daysLeft = (item.LapseDate.Value - DateTime.Now).TotalDays;
-                                        if (isLapsed)
+                @if (!Model.Any())
+                {
+                    <div class="text-center py-5">
+                        <i class="bi bi-calendar-x" style="font-size: 3rem; color: var(--orange);"></i>
+                        <h5 class="mt-3 mb-2" style="color: var(--green);">No Events Found</h5>
+                        <p class="text-muted mb-0">
+                            @if (currentFilter != "All")
+                            {
+                                <span>No events with status "@currentFilter". </span>
+                                <a href="@Url.Action("Index", new { filter = "All" })">View all events</a>
+                            }
+                            else
+                            {
+                                <span>You haven't created any events yet. Click "Propose New Event" to get started.</span>
+                            }
+                        </p>
+                    </div>
+                }
+                else
+                {
+                    <table class="table table-hover align-middle mb-0">
+                        <thead style="background: var(--light-yellow);">
+                            <tr>
+                                <th style="color: var(--green);">Title</th>
+                                <th style="color: var(--green);">Status</th>
+                                <th style="color: var(--green);">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var item in Model)
+                            {
+                                var isLapsed = item.Status == "Lapsed" || item.IsLapsed;
+                                <tr class="@(isLapsed ? "table-secondary" : "")">
+                                    <td>@item.Title</td>
+                                    <td>
+                                        @if (isLapsed)
                                         {
-                                            <span class="text-danger"><i class="bi bi-x-circle me-1"></i>@item.LapseDate.Value.ToString("g")</span>
+                                            <span class="badge bg-dark"><i class="bi bi-clock-history me-1"></i>Lapsed</span>
                                         }
-                                        else if (daysLeft <= 1)
+                                        else if (item.Status == "Approved")
                                         {
-                                            <span class="text-danger fw-bold"><i class="bi bi-exclamation-triangle me-1"></i>@item.LapseDate.Value.ToString("g")</span>
+                                            <span class="badge" style="background: var(--green); color: #fff;">Approved</span>
                                         }
-                                        else if (daysLeft <= 3)
+                                        else if (item.Status == "Pending")
                                         {
-                                            <span class="text-warning"><i class="bi bi-clock me-1"></i>@item.LapseDate.Value.ToString("g")</span>
+                                            <span class="badge" style="background: var(--orange); color: #fff;">Pending</span>
+                                        }
+                                        else if (item.Status == "Rejected")
+                                        {
+                                            <span class="badge" style="background: var(--red); color: #fff;">Returned</span>
+                                        }
+                                        else if (item.Status == "ApprovedByPresident")
+                                        {
+                                            <span class="badge bg-success" style="color: #fff;">Approved By President</span>
+                                        }
+                                        else if (item.Status == "SentToPresident")
+                                        {
+                                            <span class="badge bg-info" style="color: #fff;">Sent to President</span>
                                         }
                                         else
                                         {
-                                            <span class="text-muted">@item.LapseDate.Value.ToString("g")</span>
+                                            <span class="badge bg-secondary">@item.Status</span>
                                         }
-                                    }
-                                    else
-                                    {
-                                        <span class="text-muted">-</span>
-                                    }
-                                </td>
-                                <td>
-                                    @if (isLapsed)
-                                    {
-                                        <span class="badge bg-dark"><i class="bi bi-clock-history me-1"></i>Lapsed</span>
-                                    }
-                                    else if (item.Status == "Approved")
-                                    {
-                                        <span class="badge" style="background: var(--green); color: #fff;">Approved</span>
-                                    }
-                                    else if (item.Status == "Pending")
-                                    {
-                                        <span class="badge" style="background: var(--orange); color: #fff;">Pending</span>
-                                    }
-                                    else if (item.Status == "Rejected")
-                                    {
-                                        <span class="badge" style="background: var(--red); color: #fff;">Returned</span>
-                                    }
-                                    else if (item.Status == "ApprovedByPresident")
-                                    {
-                                        <span class="badge bg-success" style=" color: #fff;">Approved By President</span>
-                                    }
-                                    else if (item.Status == "SentToPresident")
-                                    {
-                                        <span class="badge bg-info" style="color: #fff;">Sent to President</span>
-                                    }
-                                    else
-                                    {
-                                        <span class="badge bg-secondary">@item.Status</span>
-                                    }
-                                </td>
-                                <td>
-                                    <div class="d-flex align-items-center gap-2">
-                                        <a href="@Url.Action("Details", "EventProposals", new { id = item.EventId })" class="btn btn-sm btn-custom" style="font-size: 0.92rem;"><i class="bi bi-eye me-1"></i> View</a>
-                                        @if (!isLapsed)
-                                        {
-                                            <button type="button" class="btn btn-sm btn-danger" style="font-size: 0.92rem;" data-event-id="@item.EventId" data-action-label="Delete" onclick="showDeleteModal(this)"><i class="bi bi-trash"></i> Delete</button>
-                                        }
-                                    </div>
-                                </td>
-                            </tr>
-                        }
-                    </tbody>
-                </table>
+                                    </td>
+                                    <td>
+                                        <div class="d-flex align-items-center gap-2">
+                                            <a href="@Url.Action("Details", "EventProposals", new { id = item.EventId })" class="btn btn-sm btn-custom" style="font-size: 0.92rem;"><i class="bi bi-eye me-1"></i> View</a>
+                                            @if (!isLapsed)
+                                            {
+                                                <button type="button" class="btn btn-sm btn-danger" style="font-size: 0.92rem;" data-event-id="@item.EventId" data-action-label="Delete" onclick="showDeleteModal(this)"><i class="bi bi-trash"></i> Delete</button>
+                                            }
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                }
             </div>
         </div>
 
-        <div class="pagination-container">
-            @Html.PagedListPager(
-                Model,
-                page => Url.Action("Index", new { page }),
-                new PagedList.Mvc.PagedListRenderOptions()
-                {
-                    DisplayLinkToFirstPage = PagedList.Mvc.PagedListDisplayMode.Always,
-                    DisplayLinkToLastPage = PagedList.Mvc.PagedListDisplayMode.Always,
-                    DisplayLinkToNextPage = PagedList.Mvc.PagedListDisplayMode.Always,
-                    DisplayLinkToPreviousPage = PagedList.Mvc.PagedListDisplayMode.Always,
-
-                    MaximumPageNumbersToDisplay = 5,
-                    UlElementClasses = new[] { "pagination" },
-                    LiElementClasses = new[] { "page-item" },
-
-                    // Ensures Bootstrap-friendly classes
-                    LinkToPreviousPageFormat = "‹ Prev",
-                    LinkToNextPageFormat = "Next ›",
-                    LinkToFirstPageFormat = "« First",
-                    LinkToLastPageFormat = "Last »"
-                }
-            )
-        </div>
-
-
+        @if (Model.Any())
+        {
+            <div class="pagination-container">
+                @Html.PagedListPager(
+                    Model,
+                    page => Url.Action("Index", new { page, filter = currentFilter }),
+                    new PagedList.Mvc.PagedListRenderOptions()
+                    {
+                        DisplayLinkToFirstPage = PagedList.Mvc.PagedListDisplayMode.Always,
+                        DisplayLinkToLastPage = PagedList.Mvc.PagedListDisplayMode.Always,
+                        DisplayLinkToNextPage = PagedList.Mvc.PagedListDisplayMode.Always,
+                        DisplayLinkToPreviousPage = PagedList.Mvc.PagedListDisplayMode.Always,
+                        MaximumPageNumbersToDisplay = 5,
+                        UlElementClasses = new[] { "pagination" },
+                        LiElementClasses = new[] { "page-item" },
+                        LinkToPreviousPageFormat = "‹ Prev",
+                        LinkToNextPageFormat = "Next ›",
+                        LinkToFirstPageFormat = "« First",
+                        LinkToLastPageFormat = "Last »"
+                    }
+                )
+            </div>
+        }
     </div>
 </div>
 
@@ -397,7 +468,7 @@
                             // Check if file is PDF
                             if (fileExtension !== 'pdf') {
                                 alert('Only PDF files are allowed. Please select a PDF file.');
-                                this.value = ''; // Clear the file input
+                                this.value = '';
                                 fileNameSpan.textContent = '';
                                 return;
                             }
@@ -439,7 +510,6 @@
             var spinner = document.getElementById('createEventSpinner');
             if (createEventForm && submitBtn && spinner) {
                 createEventForm.addEventListener('submit', function (e) {
-                    // Show spinner and disable button
                     spinner.classList.remove('d-none');
                     submitBtn.setAttribute('disabled', 'disabled');
                     submitBtn.querySelector('.spinner-text').textContent = 'Creating...';
@@ -463,7 +533,6 @@
         }
     </script>
     <style>
-        /* Ensure only the spinner spins, not the text */
         .spinner-text {
             animation: none !important;
         }

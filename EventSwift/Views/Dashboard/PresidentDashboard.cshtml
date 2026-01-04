@@ -125,6 +125,7 @@
                             <tr>
                                 <th style="color: var(--green);">Event Title</th>
                                 <th style="color: var(--green);">Client</th>
+                                <th style="color: var(--green);">Lapse Date</th>
                                 <th style="color: var(--green);">Date Sent</th>
                                 <th style="color: var(--green);">Status</th>
                                 <th style="color: var(--green);">Actions</th>
@@ -134,9 +135,36 @@
                             @foreach (var ev in Model.PendingEvents)
                             {
                                 var latestProposalDate = ev.Proposals?.OrderByDescending(p => p.SubmittedAt).FirstOrDefault()?.SubmittedAt;
-                                <tr>
+                                var isLapsed = ev.Status == "Lapsed" || ev.IsLapsed;
+                                <tr class="@(isLapsed ? "table-secondary" : "")">
                                     <td class="fw-semibold">@ev.Title</td>
                                     <td>@(ev.Client != null ? ev.Client.Username : "Unknown")</td>
+                                    <td>
+                                        @if (ev.LapseDate.HasValue)
+                                        {
+                                            var daysLeft = (ev.LapseDate.Value - DateTime.Now).TotalDays;
+                                            if (isLapsed)
+                                            {
+                                                <span class="text-danger"><i class="bi bi-x-circle me-1"></i>@ev.LapseDate.Value.ToString("g")</span>
+                                            }
+                                            else if (daysLeft <= 1)
+                                            {
+                                                <span class="text-danger fw-bold"><i class="bi bi-exclamation-triangle me-1"></i>@ev.LapseDate.Value.ToString("g")</span>
+                                            }
+                                            else if (daysLeft <= 3)
+                                            {
+                                                <span class="text-warning"><i class="bi bi-clock me-1"></i>@ev.LapseDate.Value.ToString("g")</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="text-muted">@ev.LapseDate.Value.ToString("g")</span>
+                                            }
+                                        }
+                                        else
+                                        {
+                                            <span class="text-muted">-</span>
+                                        }
+                                    </td>
                                     <td>@(latestProposalDate?.ToString("g") ?? "-")</td>
                                     <td><span class="badge bg-warning text-dark">Sent to President</span></td>
                                     <td>
@@ -231,7 +259,7 @@
             }
         </div>
 
-        <!-- Recent Activity Section (empty for now) -->
+        <!-- Recent Activity Section -->
         <div class="mb-5">
             <div class="d-flex align-items-center mb-3">
                 <h4 class="fw-semibold mb-0" style="color: var(--green);"><i class="bi bi-activity me-2"></i>Recent Activity</h4>

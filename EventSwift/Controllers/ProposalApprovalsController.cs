@@ -76,7 +76,7 @@ namespace EventSwift.Controllers
             public List<EventProposal> Proposals { get; set; }
         }
 
-        public ActionResult ApprovalsIndex(int? page)
+        public ActionResult ApprovalsIndex(int? page, string filter = "All")
         {
             // Check for lapsed events
             CheckAndUpdateLapsedEvents();
@@ -90,9 +90,47 @@ namespace EventSwift.Controllers
             int pageSize = 5;
             int pageNumber = page ?? 1;
 
-            var events = db.Events
+            // Get all events for this office (for counting)
+            var allOfficeEvents = db.Events
                 .Include(e => e.Proposals.Select(p => p.Approvals))
                 .Where(ev => ev.Proposals.Any(p => p.Approvals.Any(a => a.Office == officeRole)))
+                .ToList();
+
+            // Calculate counts for each status
+            ViewBag.AllCount = allOfficeEvents.Count;
+            ViewBag.PendingCount = allOfficeEvents.Count(e => e.Status == "Pending");
+            ViewBag.SentToPresidentCount = allOfficeEvents.Count(e => e.Status == "SentToPresident");
+            ViewBag.ApprovedCount = allOfficeEvents.Count(e => e.Status == "ApprovedByPresident");
+            ViewBag.RejectedCount = allOfficeEvents.Count(e => e.Status == "Rejected");
+            ViewBag.LapsedCount = allOfficeEvents.Count(e => e.Status == "Lapsed" || e.IsLapsed);
+            ViewBag.CurrentFilter = filter;
+
+            // Build filtered query
+            var eventsQuery = db.Events
+                .Include(e => e.Proposals.Select(p => p.Approvals))
+                .Where(ev => ev.Proposals.Any(p => p.Approvals.Any(a => a.Office == officeRole)));
+
+            switch (filter)
+            {
+                case "Pending":
+                    eventsQuery = eventsQuery.Where(e => e.Status == "Pending");
+                    break;
+                case "SentToPresident":
+                    eventsQuery = eventsQuery.Where(e => e.Status == "SentToPresident");
+                    break;
+                case "ApprovedByPresident":
+                    eventsQuery = eventsQuery.Where(e => e.Status == "ApprovedByPresident");
+                    break;
+                case "Rejected":
+                    eventsQuery = eventsQuery.Where(e => e.Status == "Rejected");
+                    break;
+                case "Lapsed":
+                    eventsQuery = eventsQuery.Where(e => e.Status == "Lapsed");
+                    break;
+                    // "All" - no additional filter
+            }
+
+            var events = eventsQuery
                 .OrderByDescending(e => e.EventId)
                 .ToPagedList(pageNumber, pageSize);
 

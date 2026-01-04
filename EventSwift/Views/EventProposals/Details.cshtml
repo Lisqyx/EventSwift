@@ -48,21 +48,35 @@
         {
             foreach (var proposal in Model.Proposals)
             {
+                // Check if there's a pending (unread) follow-up for this specific proposal
                 bool hasPendingFollowUp = checkDb.Notifications
                     .Any(n => n.Message.Contains("Follow up:") &&
                               n.Message.Contains(proposal.Title) &&
+                              n.Message.Contains(Model.Title) && // Also check event title for specificity
                               n.IsRead == false);
 
+                // Check if the ORIGINAL submission notification was read by the office
+                // Must match: proposal title, event title, and NOT be a follow-up
                 bool originalNotificationRead = checkDb.Notifications
                     .Any(n => n.Message.Contains(proposal.Title) &&
+                              n.Message.Contains(Model.Title) &&
                               !n.Message.Contains("Follow up:") &&
+                              !n.Message.Contains("has been approved") &&
+                              !n.Message.Contains("has been rejected") &&
+                              !n.Message.Contains("resubmitted") &&
                               n.IsRead == true);
 
+                // Check if any previous follow-up was read
                 bool previousFollowUpRead = checkDb.Notifications
                     .Any(n => n.Message.Contains("Follow up:") &&
                               n.Message.Contains(proposal.Title) &&
+                              n.Message.Contains(Model.Title) &&
                               n.IsRead == true);
 
+                // Can only follow up if:
+                // 1. Proposal is still pending
+                // 2. No unread follow-up exists
+                // 3. The office has read EITHER the original notification OR a previous follow-up
                 bool canFollowUp = proposal.Status == "Pending" &&
                                   !hasPendingFollowUp &&
                                   (originalNotificationRead || previousFollowUpRead);
@@ -73,7 +87,6 @@
         }
     }
 }
-
 @functions {
     public string GetOfficeDisplay(string office)
     {

@@ -3,6 +3,7 @@
 @{
     ViewBag.Title = "Event Details - President";
     ViewBag.SkipNavbar = true;
+    var isLapsed = Model.Status == "Lapsed" || Model.IsLapsed;
 }
 
 @if (TempData["Success"] != null || TempData["Error"] != null)
@@ -20,8 +21,10 @@
 }
 
 @functions {
-    public string GetOfficeDisplay(string office) {
-        switch (office) {
+    public string GetOfficeDisplay(string office)
+    {
+        switch (office)
+        {
             case "VPAA": return "VP Academic Affairs (VPAA)";
             case "VPF": return "VP Finance (VPF)";
             case "VPA": return "VP Administration (VPA)";
@@ -43,8 +46,36 @@
                 <h3 class="fw-bold mb-2" style="color: var(--green);"><i class="bi bi-calendar-event me-2"></i>@Model.Title</h3>
                 <div class="mb-2">
                     <span class="me-3"><i class="bi bi-person-circle me-1"></i> <strong>Client:</strong> @(Model.Client != null ? Model.Client.Username : "Unknown")</span>
-                    <span class="me-3"><i class="bi bi-info-circle me-1"></i> <strong>Status:</strong> <span class="badge @(Model.Status == "ApprovedByPresident" ? "bg-success" : Model.Status == "SentToPresident" ? "bg-warning text-dark" : "bg-secondary")">@Model.Status</span></span>
+                    <span class="me-3"><i class="bi bi-info-circle me-1"></i> <strong>Status:</strong> <span class="badge @(Model.Status == "ApprovedByPresident" ? "bg-success" : Model.Status == "SentToPresident" ? "bg-warning text-dark" : isLapsed ? "bg-dark" : "bg-secondary")">@(isLapsed ? "Lapsed" : Model.Status)</span></span>
                 </div>
+
+                <!-- Lapse Date Display -->
+                @if (Model.LapseDate.HasValue)
+                {
+                    var daysLeft = (Model.LapseDate.Value - DateTime.Now).TotalDays;
+                    <div class="mb-2">
+                        <span class="me-3">
+                            <i class="bi bi-calendar-x me-1"></i> <strong>Lapse Date:</strong>
+                            @if (isLapsed)
+                            {
+                                <span class="text-danger"><i class="bi bi-x-circle me-1"></i>@Model.LapseDate.Value.ToString("MMMM dd, yyyy h:mm tt") <span class="badge bg-dark ms-1">Lapsed</span></span>
+                            }
+                            else if (daysLeft <= 1)
+                            {
+                                <span class="text-danger fw-bold"><i class="bi bi-exclamation-triangle me-1"></i>@Model.LapseDate.Value.ToString("MMMM dd, yyyy h:mm tt")</span>
+                            }
+                            else if (daysLeft <= 3)
+                            {
+                                <span class="text-warning"><i class="bi bi-clock me-1"></i>@Model.LapseDate.Value.ToString("MMMM dd, yyyy h:mm tt")</span>
+                            }
+                            else
+                            {
+                                <span class="badge bg-info text-dark">@Model.LapseDate.Value.ToString("MMMM dd, yyyy h:mm tt")</span>
+                            }
+                        </span>
+                    </div>
+                }
+
                 @if (Model.ApprovedDate.HasValue)
                 {
                     <div class="mb-2">
@@ -57,7 +88,15 @@
                         <span class="me-3"><i class="bi bi-geo-alt me-1"></i> <strong>Event Venue:</strong> <span class="badge bg-info text-dark">@Model.Venue</span></span>
                     </div>
                 }
-                @if (Model.Status == "SentToPresident")
+
+                @if (isLapsed)
+                {
+                    <div class="alert alert-dark mt-3">
+                        <i class="bi bi-clock-history me-2"></i>
+                        <strong>This event has lapsed.</strong> No actions can be taken.
+                    </div>
+                }
+                else if (Model.Status == "SentToPresident")
                 {
                     <div class="mt-3">
                         <form action="@Url.Action("PresidentApprove", "EventProposals")" method="post" class="d-inline">
@@ -67,7 +106,6 @@
                                 <i class="bi bi-check-circle me-1"></i> Approve Event
                             </button>
                         </form>
-
                     </div>
                 }
             </div>
@@ -92,38 +130,29 @@
                             <tbody>
                                 @foreach (var proposal in Model.Proposals)
                                 {
-                                    <tr>
+                                    <tr class="@(isLapsed ? "table-secondary" : "")">
                                         <td>@proposal.Title</td>
                                         <td>
-                                            @{
-                                                var statusBadgeClass = "";
-                                                var statusText = proposal.Status;
-                                                
-                                                if (proposal.Status == "Approved")
-                                                {
-                                                    statusBadgeClass = "badge";
-                                                    statusText = "Approved";
-                                                }
-                                                else if (proposal.Status == "Pending")
-                                                {
-                                                    statusBadgeClass = "badge";
-                                                    statusText = "For Approval";
-                                                }
-                                                else if (proposal.Status == "Rejected")
-                                                {
-                                                    statusBadgeClass = "badge";
-                                                    statusText = "Returned";
-                                                }
-                                                else
-                                                {
-                                                    statusBadgeClass = "badge bg-secondary";
-                                                }
+                                            @if (isLapsed)
+                                            {
+                                                <span class="badge bg-dark"><i class="bi bi-clock-history me-1"></i>Lapsed</span>
                                             }
-                                            <span class="@statusBadgeClass" style="@(proposal.Status == "Approved" ? "background: var(--green); color: #fff;" : 
-                                                                                    proposal.Status == "Pending" ? "background: var(--orange); color: #fff;" : 
-                                                                                    proposal.Status == "Rejected" ? "background: var(--brown); color: #fff;" : "")">
-                                                @statusText
-                                            </span>
+                                            else if (proposal.Status == "Approved")
+                                            {
+                                                <span class="badge" style="background: var(--green); color: #fff;">Approved</span>
+                                            }
+                                            else if (proposal.Status == "Pending")
+                                            {
+                                                <span class="badge" style="background: var(--orange); color: #fff;">For Approval</span>
+                                            }
+                                            else if (proposal.Status == "Rejected")
+                                            {
+                                                <span class="badge" style="background: var(--brown); color: #fff;">Returned</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="badge bg-secondary">@proposal.Status</span>
+                                            }
                                         </td>
                                         <td>@proposal.SubmittedAt.ToString("g")</td>
                                         <td>@GetOfficeDisplay(proposal.TargetOfficeRole)</td>
@@ -148,7 +177,7 @@
 @section Scripts {
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        document.addEventListener('DOMContentLoaded', function() {
+        document.addEventListener('DOMContentLoaded', function () {
             var toastEl = document.getElementById('feedbackToast');
             if (toastEl) {
                 var toast = new bootstrap.Toast(toastEl, { delay: 2000 });
@@ -156,4 +185,4 @@
             }
         });
     </script>
-} 
+}
