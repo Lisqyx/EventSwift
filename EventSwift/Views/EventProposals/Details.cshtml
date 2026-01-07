@@ -466,7 +466,7 @@
                                     Color = vpaaRejected ? "danger" : (vpaaReviewed ? "success" : "warning")
                                 });
 
-                                // VPA review for VPAA documents
+                                // VPA review for VPAA documents (forwarding step)
                                 if (vpaaReviewed && !vpaaRejected)
                                 {
                                     var vpaaVpaApprovals = vpaaProposalsTracking.SelectMany(p => p.Approvals).Where(a => a.Office == "VPA").ToList();
@@ -482,7 +482,7 @@
                                                        (vpaaVpaApproved ? $"Approved by VPA - {vpaaDocCount} document{(vpaaDocCount > 1 ? "s" : "")} ready for President" :
                                                        $"Forwarded to VPA - {vpaaDocCount} document{(vpaaDocCount > 1 ? "s" : "")} ready for final review"),
                                         Time = vpaaVpaApprovals.Any() ? vpaaVpaApprovals.Max(a => a.ActionDate) : null,
-                                        Color = vpaaVpaRejected ? "danger" : (vpaaVpaApproved ? "success" : "info")
+                                        Color = vpaaVpaRejected ? "danger" : (vpaaVpaApproved ? "success" : "warning")
                                     });
                                 }
                             }
@@ -511,7 +511,7 @@
                                     Color = vpfRejected ? "danger" : (vpfReviewed ? "success" : "warning")
                                 });
 
-                                // VPA review for VPF documents
+                                // VPA review for VPF documents (forwarding step)
                                 if (vpfReviewed && !vpfRejected)
                                 {
                                     var vpfVpaApprovals = vpfProposalsTracking.SelectMany(p => p.Approvals).Where(a => a.Office == "VPA").ToList();
@@ -527,7 +527,7 @@
                                                        (vpfVpaApproved ? $"Approved by VPA - {vpfDocCount} document{(vpfDocCount > 1 ? "s" : "")} ready for President" :
                                                        $"Forwarded to VPA - {vpfDocCount} document{(vpfDocCount > 1 ? "s" : "")} ready for final review"),
                                         Time = vpfVpaApprovals.Any() ? vpfVpaApprovals.Max(a => a.ActionDate) : null,
-                                        Color = vpfVpaRejected ? "danger" : (vpfVpaApproved ? "success" : "info")
+                                        Color = vpfVpaRejected ? "danger" : (vpfVpaApproved ? "success" : "warning")
                                     });
                                 }
                             }
@@ -556,7 +556,7 @@
                                     Color = amuRejected ? "danger" : (amuReviewed ? "success" : "warning")
                                 });
 
-                                // VPA review for AMU documents
+                                // VPA review for AMU documents (forwarding step)
                                 if (amuReviewed && !amuRejected)
                                 {
                                     var amuVpaApprovals = amuProposalsTracking.SelectMany(p => p.Approvals).Where(a => a.Office == "VPA").ToList();
@@ -572,7 +572,7 @@
                                                        (amuVpaApproved ? $"Approved by VPA - {amuDocCount} document{(amuDocCount > 1 ? "s" : "")} ready for President" :
                                                        $"Forwarded to VPA - {amuDocCount} document{(amuDocCount > 1 ? "s" : "")} ready for final review"),
                                         Time = amuVpaApprovals.Any() ? amuVpaApprovals.Max(a => a.ActionDate) : null,
-                                        Color = amuVpaRejected ? "danger" : (amuVpaApproved ? "success" : "info")
+                                        Color = amuVpaRejected ? "danger" : (amuVpaApproved ? "success" : "warning")
                                     });
                                 }
                             }
@@ -650,6 +650,18 @@
                                 Time = (DateTime?)null,
                                 Color = presidentApproved ? "success" : (sentToPresident ? "warning" : "secondary")
                             });
+
+                            // SORT: completed first, then in-progress, then rejected, then pending
+                            trackingSteps = trackingSteps
+                                .OrderBy(x =>
+                                {
+                                    string status = x.Status;
+                                    if (status == "completed") return 0;
+                                    if (status == "in-progress") return 1;
+                                    if (status == "rejected") return 2;
+                                    return 3; // pending
+                                        })
+                                .ToList();
                         }
 
                         <div class="logistics-timeline">
