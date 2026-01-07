@@ -338,7 +338,7 @@
                             @foreach (var item in Model)
                             {
                                 var isLapsed = item.Status == "Lapsed" || item.IsLapsed;
-                                <tr class="@(isLapsed ? "table-secondary" : "")">
+                                <tr class="@(isLapsed ? "table-white" : "")">
                                     <td>@item.Title</td>
                                     <td>
                                         @if (isLapsed)

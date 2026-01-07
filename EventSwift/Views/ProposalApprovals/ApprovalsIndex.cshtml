@@ -205,7 +205,7 @@
                             {
                                 var isLapsed = ev.Status == "Lapsed" || ev.IsLapsed;
                                 var isApproved = ev.Status == "ApprovedByPresident" || ev.Status == "SentToPresident";
-                                <tr class="@(isLapsed ? "table-secondary" : "")">
+                                <tr class="@(isLapsed ? "table-white" : "")">
                                     <td>@ev.Title</td>
                                     <td>
                                         @if (ev.LapseDate.HasValue)
